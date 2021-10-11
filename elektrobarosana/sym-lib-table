@@ -1,0 +1,5 @@
+(sym_lib_table
+  (lib (name Battery_IC)(type Legacy)(uri ${KIPRJMOD}/schematics/Battery_IC.lib)(options "")(descr ""))
+  (lib (name Buck_conv)(type Legacy)(uri ${KIPRJMOD}/schematics/Buck_conv.lib)(options "")(descr ""))
+  (lib (name IRBE_elektro_bar-rescue)(type Legacy)(uri ${KIPRJMOD}/IRBE_elektro_bar-rescue.lib)(options "")(descr ""))
+)
