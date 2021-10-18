@@ -1,0 +1,4 @@
+(sym_lib_table
+  (lib (name apzimej)(type Legacy)(uri "C:/Users/Mareks/OneDrive - Ventspils Augstskola/Desktop/elktrobarosana/Elektrobarosana/apzimejumi/apzimej.lib")(options "")(descr ""))
+  (lib (name Template-rescue)(type Legacy)(uri ${KIPRJMOD}/Template-rescue.lib)(options "")(descr ""))
+)
