@@ -11,7 +11,7 @@ uint8_t rxTemp;
 
 
 
-uint8_t gpsData[24] = {0}; //0 coord latitude //1 coord longitude
+uint8_t gpsData[24] = {0}; //0 coord latitude //1 coord longitude "05723.06487N", "02132.70887E"
 uint8_t gpsHeight[8] = {0};
 uint8_t gpsSpeed[6] = {0};
 uint8_t gpsTime[6] = {0};
@@ -22,9 +22,6 @@ uint8_t gpsTempLen = 255;
 uint8_t isData = 0;
 uint8_t isNewData = 0;
 
-
-
-// "05723.06487N", "02132.70887E"
 // "000009.7"
 // "00.358"
 
@@ -61,12 +58,12 @@ uint8_t GPS_Parse(uint8_t *buf, uint8_t len){
 							leng++;
 							i++;
 						}
-					if(leng == 0){
-						return GPS_NOK;
-					}
-					memset(gpsTime, '0', 6);
-					memcpy(gpsTime + (6-leng), tempData, leng);
-				}else if(step == 2 || step == 3){
+						if(leng == 0){
+							return GPS_NOK;
+						}
+						memset(gpsTime, '0', 6);
+						memcpy(gpsTime + (6-leng), tempData, leng);
+					}else if(step == 2 || step == 3){
 						uint8_t tempData[12] = {0};
 						uint8_t leng = 0;
 						while(buf[i] != ','){
@@ -192,8 +189,7 @@ uint8_t GPS_HexToByte(uint8_t *hex, uint8_t *value){
 /* Returns latitude of length 12*/
 void GPS_GetLat(uint8_t *buf){
 	isNewData = 0;
-	uint8_t i = 0;
-	for(; i < 12; i++){
+	for(uint8_t i = 1; i < 10; i++){
 		buf[i] = gpsData[i];
 	}
 }
@@ -201,8 +197,7 @@ void GPS_GetLat(uint8_t *buf){
 /* Returns longitude of length 12*/
 void GPS_GetLon(uint8_t *buf){
 	isNewData = 0;
-	uint8_t i = 0;
-	for(; i < 12; i++){
+	for(uint8_t i = 1; i < 10; i++){
 		buf[i] = gpsData[i + 12];
 	}
 }
@@ -210,8 +205,7 @@ void GPS_GetLon(uint8_t *buf){
 /* Returns speed of length 6*/
 void GPS_GetSpe(uint8_t *buf){
 	isNewData = 0;
-	uint8_t i = 0;
-	for(; i < 6; i++){
+	for(uint8_t i = 0; i < 6; i++){
 		buf[i] = gpsSpeed[i];
 	}
 }

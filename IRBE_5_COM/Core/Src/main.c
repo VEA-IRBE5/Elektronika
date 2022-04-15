@@ -253,7 +253,12 @@ int main(void)
 
 	//HAL_UART_Transmit_IT(&huart6, UART6_TxBuf, 2);
 
-	while(GPS_IsData() == GPS_NOK);
+	while(GPS_IsData() == GPS_NOK){
+		if(uartRec){
+			GPS_Receive(rxBuf);
+			uartRec = 0;
+		}
+	}
 
   /* USER CODE END 2 */
 
