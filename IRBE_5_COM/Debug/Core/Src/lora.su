@@ -1,0 +1,2 @@
+lora.c:17:6:LORA_Send	280	static
+lora.c:35:9:LORA_Receive	296	static
