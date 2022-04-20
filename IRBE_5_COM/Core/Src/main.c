@@ -259,6 +259,7 @@ int main(void)
 			uartRec = 0;
 		}
 	}
+	memset(UART6_RxBuf, 48, sizeof(UART6_RxBuf));
 
   /* USER CODE END 2 */
 
@@ -266,11 +267,8 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-	  	if(uartRec){
-	  		GPS_Receive(rxBuf);
-	  		uartRec = 0;
-	  	}
 	  	 if(do_send_tm){ // its time to send gps coordinates
+
 	  		 //if(GPS_IsData()){
 			 //doRecData = 0; NAV VAJADZIGS JO PROCESI NENOTIEK PARARELI //Igo dumbness//
 			 UART6_TxBuf[0] = 0x03;
@@ -283,7 +281,7 @@ int main(void)
 			 SX1278_FSK_EntryRx(&SX1278, 8);
 			 //doRecData = 1;
 			 HAL_GPIO_WritePin(LED_0_GPIO_Port, LED_0_Pin, GPIO_PIN_RESET);
-
+			 recvd = 0;
 			 HAL_TIM_Base_Start_IT(&htim4);
 	  		 //}
 	  	}
@@ -790,8 +788,8 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart){
 	//gsmRec = 1;
 	if(huart == &huart1){
 		HAL_UART_Receive_IT(&huart1, &rxBuf, 1);
+		GPS_Receive(rxBuf);
 		//HAL_UART_Receive_DMA(&huart1, &rxBuf, 1);
-		uartRec = 1;
 	}
 
 	if(huart == &huart6)
@@ -830,7 +828,7 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart){
 				break;
 			}
 		}
-		memset(UART6_RxBuf, 0, sizeof(UART6_RxBuf));
+		memset(UART6_RxBuf, 48, sizeof(UART6_RxBuf));
 	}
 }
 
@@ -1062,17 +1060,17 @@ uint8_t get_check_sum(char *string){
 void make_string(char *s, uint8_t size){
 
 	//num++;
-	uint8_t time[8];
-	uint8_t lat[9];
-	uint8_t lon[9];
-	uint8_t hei[8];
-	uint8_t spe[6];
+	uint8_t time[9];
+	uint8_t lat[10];
+	uint8_t lon[10];
+	uint8_t hei[9];
+	uint8_t spe[7];
 	//CLEAR TEMP BUFFERS (SOMETIMES IT HAS INFORMATION IN IT, BECAUSE IT USES MEMORY LOCATION THAT WERE TEMP USED FOR OTHER STUFF) ONLY WHEN THERE IS +1 elemt in array
-//	memset(time, 0, sizeof(time));
-//	memset(lat, 0, sizeof(lat));
-//	memset(lon, 0, sizeof(lon));
-//	memset(hei, 0, sizeof(hei));
-//	memset(spe, 0, sizeof(spe));
+	memset(time, 0, sizeof(time));
+	memset(lat, 0, sizeof(lat));
+	memset(lon, 0, sizeof(lon));
+	memset(hei, 0, sizeof(hei));
+	memset(spe, 0, sizeof(spe));
 
 	//Get all params from satalites data
 	GPS_GetTime(time);

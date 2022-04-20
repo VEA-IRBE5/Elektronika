@@ -186,7 +186,7 @@ uint8_t GPS_HexToByte(uint8_t *hex, uint8_t *value){
 	return GPS_OK;
 }
 
-/* Returns latitude of length 12*/
+/* Returns latitude of length 12...9*/
 void GPS_GetLat(uint8_t *buf){
 	isNewData = 0;
 	for(uint8_t i = 1; i < 10; i++){
@@ -194,7 +194,7 @@ void GPS_GetLat(uint8_t *buf){
 	}
 }
 
-/* Returns longitude of length 12*/
+/* Returns longitude of length 12...9*/
 void GPS_GetLon(uint8_t *buf){
 	isNewData = 0;
 	for(uint8_t i = 1; i < 10; i++){
