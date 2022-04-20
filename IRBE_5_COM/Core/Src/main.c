@@ -277,9 +277,7 @@ int main(void)
 			 UART6_TxBuf[1] = 0x99;
 			 HAL_GPIO_WritePin(LED_0_GPIO_Port, LED_0_Pin, GPIO_PIN_SET);
 			 HAL_UART_Transmit_IT(&huart6, UART6_TxBuf, 2);
-			 if(GPS_IsData()){
-			 	 make_string(tel_dataBuf, sizeof(tel_dataBuf));
-			 }
+			 make_string(tel_dataBuf, sizeof(tel_dataBuf));
 			 RTTY_Send(&SX1278, tel_dataBuf, strlen(tel_dataBuf));
 			 SX1278_FSK_TxPacket(&SX1278, info_message, 8, 100);
 			 SX1278_FSK_EntryRx(&SX1278, 8);
@@ -290,7 +288,7 @@ int main(void)
 	  		 //}
 	  	}
 	  	 if(loraModuleIrq && doRecData){
-			temp = SX1278_FSK_RxPacket(&SX1278, loraBuf, 8, 1000);
+			SX1278_FSK_RxPacket(&SX1278, loraBuf, 8, 1000);
 			if(strcmp((char *)loraBuf, "cutropeN") == 0){
 				HAL_GPIO_WritePin(LED_2_GPIO_Port, LED_2_Pin, GPIO_PIN_SET);
 
@@ -1065,8 +1063,8 @@ void make_string(char *s, uint8_t size){
 
 	//num++;
 	uint8_t time[8];
-	uint8_t lat[12];
-	uint8_t lon[12];
+	uint8_t lat[9];
+	uint8_t lon[9];
 	uint8_t hei[8];
 	uint8_t spe[6];
 	//CLEAR TEMP BUFFERS (SOMETIMES IT HAS INFORMATION IN IT, BECAUSE IT USES MEMORY LOCATION THAT WERE TEMP USED FOR OTHER STUFF) ONLY WHEN THERE IS +1 elemt in array
