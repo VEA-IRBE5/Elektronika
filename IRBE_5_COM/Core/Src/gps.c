@@ -190,7 +190,7 @@ uint8_t GPS_HexToByte(uint8_t *hex, uint8_t *value){
 void GPS_GetLat(uint8_t *buf){
 	isNewData = 0;
 	for(uint8_t i = 1; i < 10; i++){
-		buf[i] = gpsData[i];
+		buf[i - 1] = gpsData[i];
 	}
 }
 
@@ -198,7 +198,7 @@ void GPS_GetLat(uint8_t *buf){
 void GPS_GetLon(uint8_t *buf){
 	isNewData = 0;
 	for(uint8_t i = 1; i < 10; i++){
-		buf[i] = gpsData[i + 12];
+		buf[i - 1] = gpsData[i + 12];
 	}
 }
 
