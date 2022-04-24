@@ -128,9 +128,9 @@ uint8_t timePas = 0;
 uint32_t u_sec_delay = 0;
 uint8_t gsmBuf = 0;
 uint8_t gsmRec = 0;
-uint8_t do_send_tm = 0;
+uint8_t do_send_tm = 1;
 uint8_t doSendGSM = 0;
-uint8_t doRecData = 1;
+uint8_t receive_data = 0;
 
 uint8_t sec_gps = 0;
 uint8_t sec_lora_rec = 0;
@@ -188,7 +188,7 @@ int main(void)
   MX_TIM4_Init();
   /* USER CODE BEGIN 2 */
 
-  HAL_TIM_Base_Start_IT(&htim2);
+  //HAL_TIM_Base_Start_IT(&htim2);
   //HAL_TIM_Base_Start_IT(&htim3);
 
   SX1278_hw_t SX1278_hw;
@@ -253,12 +253,8 @@ int main(void)
 
 	//HAL_UART_Transmit_IT(&huart6, UART6_TxBuf, 2);
 
-	while(GPS_IsData() == GPS_NOK){
-		if(uartRec){
-			GPS_Receive(rxBuf);
-			uartRec = 0;
-		}
-	}
+	while(GPS_IsData() == GPS_NOK);
+
 	memset(UART6_RxBuf, 48, sizeof(UART6_RxBuf));
 
   /* USER CODE END 2 */
@@ -267,10 +263,8 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-	  	 if(do_send_tm){ // its time to send gps coordinates
-
-	  		 //if(GPS_IsData()){
-			 //doRecData = 0; NAV VAJADZIGS JO PROCESI NENOTIEK PARARELI //Igo dumbness//
+	 if(do_send_tm){ // its time to send gps coordinates
+		 for(uint8_t tries = 0; tries < 5; tries++){
 			 UART6_TxBuf[0] = 0x03;
 			 UART6_TxBuf[1] = 0x99;
 			 HAL_GPIO_WritePin(LED_0_GPIO_Port, LED_0_Pin, GPIO_PIN_SET);
@@ -278,14 +272,24 @@ int main(void)
 			 make_string(tel_dataBuf, sizeof(tel_dataBuf));
 			 RTTY_Send(&SX1278, tel_dataBuf, strlen(tel_dataBuf));
 			 SX1278_FSK_TxPacket(&SX1278, info_message, 8, 100);
-			 SX1278_FSK_EntryRx(&SX1278, 8);
-			 //doRecData = 1;
 			 HAL_GPIO_WritePin(LED_0_GPIO_Port, LED_0_Pin, GPIO_PIN_RESET);
-			 recvd = 0;
-			 HAL_TIM_Base_Start_IT(&htim4);
-	  		 //}
-	  	}
-	  	 if(loraModuleIrq && doRecData){
+		 }
+		 do_send_tm = 0;
+		 receive_data = 1;
+		 HAL_TIM_Base_Start_IT(&htim2);
+	}
+	 if(receive_data){
+		if(sec_gps == 0){
+			SX1278_FSK_EntryRx(&SX1278, 8);
+			HAL_GPIO_WritePin(LED_3_GPIO_Port, LED_3_Pin, GPIO_PIN_SET);
+		}else if(sec_gps >= 5){
+			do_send_tm = 1;		// should send TM data
+			receive_data = 0;
+			sec_gps = 0;
+			HAL_GPIO_WritePin(LED_3_GPIO_Port, LED_3_Pin, GPIO_PIN_RESET);
+			HAL_TIM_Base_Stop_IT(&htim2);
+		}
+		if(loraModuleIrq){
 			SX1278_FSK_RxPacket(&SX1278, loraBuf, 8, 1000);
 			if(strcmp((char *)loraBuf, "cutropeN") == 0){
 				HAL_GPIO_WritePin(LED_2_GPIO_Port, LED_2_Pin, GPIO_PIN_SET);
@@ -300,9 +304,9 @@ int main(void)
 			}else{
 				SX1278_FSK_TxPacket(&SX1278, nok_ack_message, 8, 100);
 			}
-			ret = SX1278_FSK_EntryRx(&SX1278, 8);
-	  		loraModuleIrq = 0;
-	  	 }
+			loraModuleIrq = 0;
+		}
+	  }
   }
     /* USER CODE END WHILE */
 
@@ -818,9 +822,8 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart){
 				case 0x03:
 					UART6_TxBuf[0] = 0x02;
 					UART6_TxBuf[1] = Parameter;
-					for(uint8_t i = 0; i < Parameter; i++)
-						UART6_TxBuf[2 + i] = UART6_DataBuf[i];
-					HAL_UART_Transmit_IT(&huart6, UART6_TxBuf, Parameter);
+					memcpy(&(UART6_TxBuf[2]), UART6_DataBuf, strlen(UART6_DataBuf) + 1);
+					HAL_UART_Transmit_IT(&huart6, UART6_TxBuf, strlen(UART6_TxBuf) + 1);
 				break;
 				default:
 					//nothing happens
@@ -863,21 +866,10 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim){
 		u_sec_delay = 1;
 	}
 	if(htim->Instance == TIM2){
-		if(sec_gps++ >= 3){
-			do_send_tm = 1;		// should send TM data
-			sec_gps = 0;
-			HAL_TIM_Base_Stop_IT(&htim2);
-		}
+		sec_gps++;
 	}
 	if(htim->Instance == TIM4){
-		if(sec_lora_rec == 0)
-			HAL_GPIO_WritePin(LED_3_GPIO_Port, LED_3_Pin, GPIO_PIN_SET);
-		if(sec_lora_rec++ >= 2){
-			sec_lora_rec = 0;
-			HAL_TIM_Base_Stop_IT(&htim4);
-			HAL_TIM_Base_Start_IT(&htim2);
-			HAL_GPIO_WritePin(LED_3_GPIO_Port, LED_3_Pin, GPIO_PIN_RESET);
-		}
+
 	}
 }
 
@@ -888,52 +880,14 @@ void HAL_GPIO_EXTI_Callback(uint16_t pin){
 void RTTY_Send(SX1278_t * module, uint8_t *buf, uint8_t len){
 	uint16_t baudTimeout = 20;
 	uint8_t i;
-//	uint8_t curMode = 3; // 0 - letters, 1 - numbers, 2 - SPACE/NULL/CR
-//	uint8_t mode = 0;
 	uint8_t curChar = 0;
 
 	SX1278_RTTY_Config(module);
 
-//	SX1278_RTTY_WriteHigh(module); // start bit
-//	//HAL_Delay(100);
-
-//	RTTY_SendSingle(module, LF, baudTimeout);
-//	SX1278_RTTY_WriteHigh(module);
-//	SX1278_RTTY_WriteHigh(module); // start bits
-//	RTTY_SendSingle(module, LF, baudTimeout);
-
-	SX1278_RTTY_WriteHigh(module);
-	HAL_Delay(baudTimeout);
-
 	for(i = 0; i < len; i++){
-
 		curChar = buf[i];
-
-//		mode = RTTY_Encoder(&curChar);
-//
-//		if(mode == 255){
-//			continue;
-//		}
-
-//		if(mode != curMode){
-//			if(mode == 1){
-//				curMode = 1;
-//				RTTY_SendSingle(module, NMBR, baudTimeout);
-//			}else{
-//				curMode = 0;
-//				RTTY_SendSingle(module, LTRS, baudTimeout);
-//			}
-//		}
-
-//		if(i == 26){
-//			RTTY_SendSingle(module, NMBR, baudTimeout); /////////////What is this?
-//		}
 		RTTY_SendSingle(module, curChar, baudTimeout);
 	}
-
-	SX1278_RTTY_Stop(module);
-	HAL_Delay(baudTimeout);
-
 }
 
 void RTTY_SendSingle(SX1278_t * module, uint8_t buf, uint8_t timeout){
@@ -948,106 +902,9 @@ void RTTY_SendSingle(SX1278_t * module, uint8_t buf, uint8_t timeout){
 		HAL_Delay(timeout);
 	}
 	SX1278_RTTY_WriteHigh(module); // stop bit
-	HAL_Delay(33);
+	HAL_Delay(30);
+	SX1278_RTTY_Stop(module);
 }
-
- /* RETURN 0 if letter or 1 if number */
-//uint8_t RTTY_Encoder(uint8_t *buf){
-//	uint8_t ret = 255;
-//	uint8_t temp = buf[0];
-//
-//	if(temp < 91 && temp > 64){		   //lower case letters
-//		temp = RTTY_LTRS[temp - 65];
-//		ret = 0;
-//	}else if(temp < 123 && temp > 96){ // uppercase letters
-//		temp = RTTY_LTRS[temp - 97];
-//		ret = 0;
-//	}else if(temp == 48){ // numbers '0'
-//		temp = RTTY_LTRS[15];
-//		ret = 1;
-//	}else if(temp == 49){ // numbers '1'
-//		temp = RTTY_LTRS[16];
-//		ret = 1;
-//	}else if(temp == 50){ // numbers '2'
-//		temp = RTTY_LTRS[22];
-//		ret = 1;
-//	}else if(temp == 51){ // numbers '3'
-//		temp = RTTY_LTRS[4];
-//		ret = 1;
-//	}else if(temp == 52){ // numbers '4'
-//		temp = RTTY_LTRS[17];
-//		ret = 1;
-//	}else if(temp == 53){ // numbers '5'
-//		temp = RTTY_LTRS[19];
-//		ret = 1;
-//	}else if(temp == 54){ // numbers '6'
-//		temp = RTTY_LTRS[24];
-//		ret = 1;
-//	}else if(temp == 55){ // numbers '7'
-//		temp = RTTY_LTRS[20];
-//		ret = 1;
-//	}else if(temp == 56){ // numbers '8'
-//		temp = RTTY_LTRS[8];
-//		ret = 1;
-//	}else if(temp == 57){ // numbers '9'
-//		temp = RTTY_LTRS[14];
-//		ret = 1;
-//	}else if(temp == 40){ // numbers '('
-//		temp = RTTY_LTRS[10];
-//		ret = 1;
-//	}else if(temp == 41){ // numbers ')'
-//		temp = RTTY_LTRS[11];
-//		ret = 1;
-//	}else if(temp == 45){ // numbers '-'
-//		temp = RTTY_LTRS[0];
-//		ret = 1;
-//	}else if(temp == 39){ // numbers'''
-//		temp = RTTY_LTRS[9];
-//		ret = 1;
-//	}else if(temp == 34){ // numbers'''
-//		temp = RTTY_LTRS[25];
-//		ret = 1;
-//	}else if(temp == 36){ // numbers '$'
-//		temp = RTTY_LTRS[3];
-//		ret = 1;
-//	}else if(temp == 33){ // numbers '!'
-//		temp = RTTY_LTRS[5];
-//		ret = 1;
-//	}else if(temp == 38){ // numbers '&'
-//		temp = RTTY_LTRS[6];
-//		ret = 1;
-//	}else if(temp == 35){ // numbers '#'
-//		temp = RTTY_LTRS[7];
-//		ret = 1;
-//	}else if(temp == 47){ // numbers '/'
-//		temp = RTTY_LTRS[23];
-//		ret = 1;
-//	}else if(temp == 58){ // numbers ':'
-//		temp = RTTY_LTRS[2];
-//		ret = 1;
-//	}else if(temp == 59){ // numbers ';'
-//		temp = RTTY_LTRS[21];
-//		ret = 1;
-//	}else if(temp == 63){ // numbers '?'
-//		temp = RTTY_LTRS[1];
-//		ret = 1;
-//	}else if(temp == 44){ // numbers ','
-//		temp = RTTY_LTRS[13];
-//		ret = 1;
-//	}else if(temp == 46){ // numbers '.'
-//		temp = RTTY_LTRS[12];
-//		ret = 1;
-//	}else if(temp == 32){
-//		temp = RTTY_LTRS[26]; // letters 'space'
-//		ret = 0;
-//	}else if(temp == 13){
-//		temp = RTTY_LTRS[28]; // letters 'CR'
-//		ret = 0;
-//	}
-//
-//	*buf = temp;
-//	return ret;
-//}
 
 uint8_t get_check_sum(char *string){
 	uint8_t XOR = 0;
@@ -1079,7 +936,7 @@ void make_string(char *s, uint8_t size){
 	GPS_GetHei(hei);
 	GPS_GetSpe(spe);
 
-	snprintf(s, size, "\r\n$$$$$$IRBE5,%li,%s,%s,%s,%s,%s,%s", ++num, time, lat, lon, hei, spe, &(UART6_DataBuf[0]));
+	snprintf(s, size, "\r\n$$$$$$IRBE5,%li,%s,%s,%s,%s,%s%s", ++num, time, lat, lon, hei, spe, &(UART6_DataBuf[1]));
 	uint8_t l = strlen(s);
 	if(snprintf(s + l, size - l, "*%02x\r\n", get_check_sum(s))  > size - 4 - 1){
 		//buffer overflow
@@ -1087,58 +944,6 @@ void make_string(char *s, uint8_t size){
 	}
 }
 
-//uint32_t gps_CRC32_checksum(char *string, uint8_t length){
-//	uint8_t i = 0, size_2 = 0, j = 0, rest = 0;
-//	uint32_t crc = 0;
-//	rest = (length % 4);
-//	if(rest != 0){
-//		size_2 = length + 4 - rest;
-//	}else{
-//		size_2 = length;
-//	}
-//	uint8_t temp_string[size_2];
-//	uint8_t size = (length / 4);
-//	if(length % 4 != 0){
-//		size++;
-//	}
-//	uint32_t temp_crc[size];
-//
-//	memset(temp_crc, 0, size * 4);
-//	memset(temp_string, 0, size_2);
-//
-//	for(i = 0; i <= length - rest; i++){
-//		temp_string[i] = (uint8_t) string[i + 2];
-//	}
-//	for(i = 1; i <= size; i++){
-//		temp_crc[i - 1] = (temp_string[j] << 24) | (temp_string[j + 1] << 16) | (temp_string[j + 2] << 8) | temp_string[j + 3];
-//		//temp_crc[i - 1] = (temp_string[j + 3] << 24) | (temp_string[j + 2] << 16) | (temp_string[j + 1] << 8) | temp_string[j]; -- DOESN'T WORK
-//		j += 4;
-//	}
-//	crc = HAL_CRC_Calculate(&hcrc, temp_crc, size);
-//	return crc;
-//}
-
-//static uint32_t revbit(uint32_t uData){
-//	uint32_t uRevData = 0, uIndex = 0;
-//    uRevData |= ((uData >> uIndex) & 0x01);
-//    for(uIndex = 1;uIndex < 32;uIndex++){
-//        uRevData <<= 1;
-//        uRevData |= ((uData >> uIndex) & 0x01);
-//    }
-//    return uRevData;
-//}
-//
-//unsigned char reverse_bits(unsigned char b)
-//{
-//    unsigned char   r = 0;
-//    unsigned        byte_len = 8;
-//
-//    while (byte_len--) {
-//        r = (r << 1) | (b & 1);
-//        b >>= 1;
-//    }
-//    return r;
-//}
 
 /* USER CODE END 4 */
 
