@@ -183,23 +183,23 @@ void SX1278_config(SX1278_t * module, uint8_t frequency, uint8_t power,
 }
 
 void SX1278_RTTY_Config(SX1278_t * module){
-
 	SX1278_FSK_Config(module); // set base parameters
-	SX1278_SPIWrite(module, 0x09, 0b11110000);//0x87);	//Normal and RX
-	SX1278_SPIWrite(module, REG_LR_PADAC, 0x84);//0x87);	//Normal and RX
+	SX1278_sleep(module); //Change modem mode Must in Sleep mode
+
+	SX1278_SPIWrite(module, LR_RegPaConfig, 0b11110000);//0x87);	//Normal and RX
+	SX1278_SPIWrite(module, REG_LR_PADAC, 0x84);
 	SX1278_SPIWrite(module, REG_LR_DIOMAPPING1, 0x41);
-	SX1278_SPIWrite(module, 0x32, 5); //Payload Length 8 bytes
-	SX1278_SPIWrite(module, 0x35, 5 - 1);     //Fixed length, packetformat = 0
+	SX1278_SPIWrite(module, RegPayloadLength, 8); //Payload Length 8 bytes
+	SX1278_SPIWrite(module, RegFifoThresh, 8 - 1);     //Fixed length, packetformat = 0
 
 	SX1278_SPIWrite(module, RegFdevLsb, 0);
+	SX1278_standby(module); //Entry standby mode
 	SX1278_hw_DelayMs(1);
-
-	//SX1278_SPIWrite(module, LR_RegOpMode, 0b1011);	//Mode//Low Frequency Mod
 }
 
 void SX1278_RTTY_Stop(SX1278_t * module){
-	SX1278_SPIWrite(module, LR_RegOpMode, 0b1);
-
+	//SX1278_SPIWrite(module, LR_RegOpMode, 0b1);
+	SX1278_standby(module);
 	uint8_t ret = 1;
 	while(1){
 		ret = SX1278_SPIRead(module, 0x3e);
@@ -211,23 +211,16 @@ void SX1278_RTTY_Stop(SX1278_t * module){
 
 void SX1278_RTTY_WriteLow(SX1278_t * module){
 	SX1278_RTTY_Stop(module);
-//	uint8_t rx = 0;
-//	while(1){
-		SX1278_SPIWrite(module, 0x08, 0); //  write to RegFrfLsb
-//		rx = SX1278_SPIRead(module, 0x08); //  write to RegFrfLsb
-//		if(rx == 0){
-//			break;
-//		}
-//	}
-		SX1278_SPIWrite(module, LR_RegOpMode, 0b1010);
+	SX1278_SPIWrite(module, RegFreqLsb, 0); //  LSB
+	SX1278_SPIWrite(module, LR_RegOpMode, 0b1010);
 
-		uint8_t ret = 1;
-		while(1){
-			ret = SX1278_SPIRead(module, 0x3e);
-			if(ret & 0b10000000){
-				break;
-			}
+	uint8_t ret = 1;
+	while(1){
+		ret = SX1278_SPIRead(module, 0x3e);
+		if(ret & 0b10000000){
+			break;
 		}
+	}
 
 
 	SX1278_SPIWrite(module, LR_RegOpMode, 0b1011);
@@ -236,24 +229,16 @@ void SX1278_RTTY_WriteLow(SX1278_t * module){
 
 void SX1278_RTTY_WriteHigh(SX1278_t * module){
 	SX1278_RTTY_Stop(module);
-//	uint8_t rx = 0;
-//	while(1){
-		SX1278_SPIWrite(module, 0x08, 10); //  write to RegFrfLsb
-//		rx = SX1278_SPIRead(module, 0x08); //  write to RegFrfLsb
-//		if(rx == 10){
-//			break;
-//		}
-//	}
-		SX1278_SPIWrite(module, LR_RegOpMode, 0b1010);
+	SX1278_SPIWrite(module, RegFreqLsb, 10); //  HSB
+	SX1278_SPIWrite(module, LR_RegOpMode, 0b1010);
 
-		uint8_t ret = 1;
-		while(1){
-			ret = SX1278_SPIRead(module, 0x3e);
-			if(ret & 0b10000000){
-				break;
-			}
+	uint8_t ret = 1;
+	while(1){
+		ret = SX1278_SPIRead(module, 0x3e);
+		if(ret & 0b10000000){
+			break;
 		}
-
+	}
 	SX1278_SPIWrite(module, LR_RegOpMode, 0b1011);
 }
 
@@ -321,11 +306,11 @@ int SX1278_FSK_EntryTx(SX1278_t * module, uint8_t length) {
 	SX1278_FSK_Config(module); // set base parameters
 	SX1278_SPIWrite(module, REG_LR_PADAC, 0x84);//0x87);	//Normal and RX
 	SX1278_SPIWrite(module, REG_LR_DIOMAPPING1, 0x41);
-	SX1278_SPIWrite(module, 0x05, 0x52); // 5kHz freq deviation
-	SX1278_SPIWrite(module, 0x32, length); //Payload Length 8 bytes
+	SX1278_SPIWrite(module, RegFdevLsb, 0x52); // 5kHz freq deviation
+	SX1278_SPIWrite(module, RegPayloadLength, length); //Payload Length 8 bytes
 	//	SX1278_SPIWrite(module, RegBitRateLsb, 0x2B);	// 1200 bps
 	//	SX1278_SPIWrite(module, RegBitRateMsb, 0x68);
-	SX1278_SPIWrite(module, 0x35, length - 1);     //Fixed length, packetformat = 0
+	SX1278_SPIWrite(module, RegFifoThresh, length - 1);     //Fixed length, packetformat = 0
 
 
 	module->readBytes = 0;
@@ -446,6 +431,7 @@ int SX1278_FSK_TxPacket(SX1278_t * module, uint8_t* txBuffer, uint8_t length, ui
 			break;								// timeout happened
 		}
 	}
+	SX1278_standby(module);
 	return gotResponse;
 }
 

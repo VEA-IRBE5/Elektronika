@@ -128,9 +128,9 @@ uint8_t timePas = 0;
 uint32_t u_sec_delay = 0;
 uint8_t gsmBuf = 0;
 uint8_t gsmRec = 0;
-uint8_t do_send_tm = 0;
+uint8_t do_send_tm = 1;
 uint8_t doSendGSM = 0;
-uint8_t doRecData = 1;
+uint8_t receive_data = 0;
 
 uint8_t sec_gps = 0;
 uint8_t sec_lora_rec = 0;
@@ -188,7 +188,7 @@ int main(void)
   MX_TIM4_Init();
   /* USER CODE BEGIN 2 */
 
-  HAL_TIM_Base_Start_IT(&htim2);
+  //HAL_TIM_Base_Start_IT(&htim2);
   //HAL_TIM_Base_Start_IT(&htim3);
 
   SX1278_hw_t SX1278_hw;
@@ -253,12 +253,8 @@ int main(void)
 
 	//HAL_UART_Transmit_IT(&huart6, UART6_TxBuf, 2);
 
-	while(GPS_IsData() == GPS_NOK){
-		if(uartRec){
-			GPS_Receive(rxBuf);
-			uartRec = 0;
-		}
-	}
+	while(GPS_IsData() == GPS_NOK);
+
 	memset(UART6_RxBuf, 48, sizeof(UART6_RxBuf));
 
   /* USER CODE END 2 */
@@ -267,25 +263,31 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-	  	 if(do_send_tm){ // its time to send gps coordinates
-
-	  		 //if(GPS_IsData()){
-			 //doRecData = 0; NAV VAJADZIGS JO PROCESI NENOTIEK PARARELI //Igo dumbness//
-			 UART6_TxBuf[0] = 0x03;
-			 UART6_TxBuf[1] = 0x99;
-			 HAL_GPIO_WritePin(LED_0_GPIO_Port, LED_0_Pin, GPIO_PIN_SET);
-			 HAL_UART_Transmit_IT(&huart6, UART6_TxBuf, 2);
-			 make_string(tel_dataBuf, sizeof(tel_dataBuf));
-			 RTTY_Send(&SX1278, tel_dataBuf, strlen(tel_dataBuf));
-			 SX1278_FSK_TxPacket(&SX1278, info_message, 8, 100);
-			 SX1278_FSK_EntryRx(&SX1278, 8);
-			 //doRecData = 1;
-			 HAL_GPIO_WritePin(LED_0_GPIO_Port, LED_0_Pin, GPIO_PIN_RESET);
-			 recvd = 0;
-			 HAL_TIM_Base_Start_IT(&htim4);
-	  		 //}
-	  	}
-	  	 if(loraModuleIrq && doRecData){
+	 if(do_send_tm){ // its time to send gps coordinates
+		 UART6_TxBuf[0] = 0x03;
+		 UART6_TxBuf[1] = 0x99;
+		 HAL_GPIO_WritePin(LED_0_GPIO_Port, LED_0_Pin, GPIO_PIN_SET);
+		 HAL_UART_Transmit_IT(&huart6, UART6_TxBuf, 2);
+		 make_string(tel_dataBuf, sizeof(tel_dataBuf));
+		 RTTY_Send(&SX1278, tel_dataBuf, strlen(tel_dataBuf));
+		 SX1278_FSK_TxPacket(&SX1278, info_message, 8, 100);
+		 HAL_GPIO_WritePin(LED_0_GPIO_Port, LED_0_Pin, GPIO_PIN_RESET);
+		 do_send_tm = 0;
+		 receive_data = 1;
+		 HAL_TIM_Base_Start_IT(&htim2);
+	}
+	 if(receive_data){
+		if(sec_gps == 0){
+				SX1278_FSK_EntryRx(&SX1278, 8);
+				HAL_GPIO_WritePin(LED_3_GPIO_Port, LED_3_Pin, GPIO_PIN_SET);
+		}else if(sec_gps >= 5){
+			do_send_tm = 1;		// should send TM data
+			receive_data = 0;
+			sec_gps = 0;
+			HAL_GPIO_WritePin(LED_3_GPIO_Port, LED_3_Pin, GPIO_PIN_RESET);
+			HAL_TIM_Base_Stop_IT(&htim2);
+		}
+		if(loraModuleIrq){
 			SX1278_FSK_RxPacket(&SX1278, loraBuf, 8, 1000);
 			if(strcmp((char *)loraBuf, "cutropeN") == 0){
 				HAL_GPIO_WritePin(LED_2_GPIO_Port, LED_2_Pin, GPIO_PIN_SET);
@@ -300,9 +302,9 @@ int main(void)
 			}else{
 				SX1278_FSK_TxPacket(&SX1278, nok_ack_message, 8, 100);
 			}
-			ret = SX1278_FSK_EntryRx(&SX1278, 8);
-	  		loraModuleIrq = 0;
-	  	 }
+			loraModuleIrq = 0;
+		}
+	  }
   }
     /* USER CODE END WHILE */
 
@@ -818,9 +820,10 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart){
 				case 0x03:
 					UART6_TxBuf[0] = 0x02;
 					UART6_TxBuf[1] = Parameter;
-					for(uint8_t i = 0; i < Parameter; i++)
-						UART6_TxBuf[2 + i] = UART6_DataBuf[i];
-					HAL_UART_Transmit_IT(&huart6, UART6_TxBuf, Parameter);
+//					for(uint8_t i = 0; i < Parameter; i++)
+//						UART6_TxBuf[2 + i] = UART6_DataBuf[i];
+					memcpy(&(UART6_TxBuf[2]), UART6_DataBuf, strlen(UART6_DataBuf) + 1);
+					HAL_UART_Transmit_IT(&huart6, UART6_TxBuf, strlen(UART6_TxBuf) + 1);
 				break;
 				default:
 					//nothing happens
@@ -863,21 +866,10 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim){
 		u_sec_delay = 1;
 	}
 	if(htim->Instance == TIM2){
-		if(sec_gps++ >= 3){
-			do_send_tm = 1;		// should send TM data
-			sec_gps = 0;
-			HAL_TIM_Base_Stop_IT(&htim2);
-		}
+		sec_gps++;
 	}
 	if(htim->Instance == TIM4){
-		if(sec_lora_rec == 0)
-			HAL_GPIO_WritePin(LED_3_GPIO_Port, LED_3_Pin, GPIO_PIN_SET);
-		if(sec_lora_rec++ >= 2){
-			sec_lora_rec = 0;
-			HAL_TIM_Base_Stop_IT(&htim4);
-			HAL_TIM_Base_Start_IT(&htim2);
-			HAL_GPIO_WritePin(LED_3_GPIO_Port, LED_3_Pin, GPIO_PIN_RESET);
-		}
+
 	}
 }
 
@@ -893,7 +885,6 @@ void RTTY_Send(SX1278_t * module, uint8_t *buf, uint8_t len){
 	uint8_t curChar = 0;
 
 	SX1278_RTTY_Config(module);
-
 //	SX1278_RTTY_WriteHigh(module); // start bit
 //	//HAL_Delay(100);
 
@@ -902,8 +893,8 @@ void RTTY_Send(SX1278_t * module, uint8_t *buf, uint8_t len){
 //	SX1278_RTTY_WriteHigh(module); // start bits
 //	RTTY_SendSingle(module, LF, baudTimeout);
 
-	SX1278_RTTY_WriteHigh(module);
-	HAL_Delay(baudTimeout);
+//	SX1278_RTTY_WriteHigh(module);
+//	HAL_Delay(baudTimeout);
 
 	for(i = 0; i < len; i++){
 
@@ -930,10 +921,6 @@ void RTTY_Send(SX1278_t * module, uint8_t *buf, uint8_t len){
 //		}
 		RTTY_SendSingle(module, curChar, baudTimeout);
 	}
-
-	SX1278_RTTY_Stop(module);
-	HAL_Delay(baudTimeout);
-
 }
 
 void RTTY_SendSingle(SX1278_t * module, uint8_t buf, uint8_t timeout){
@@ -948,7 +935,8 @@ void RTTY_SendSingle(SX1278_t * module, uint8_t buf, uint8_t timeout){
 		HAL_Delay(timeout);
 	}
 	SX1278_RTTY_WriteHigh(module); // stop bit
-	HAL_Delay(33);
+	HAL_Delay(30);
+	SX1278_RTTY_Stop(module);
 }
 
  /* RETURN 0 if letter or 1 if number */
@@ -1079,7 +1067,7 @@ void make_string(char *s, uint8_t size){
 	GPS_GetHei(hei);
 	GPS_GetSpe(spe);
 
-	snprintf(s, size, "\r\n$$$$$$IRBE5,%li,%s,%s,%s,%s,%s,%s", ++num, time, lat, lon, hei, spe, &(UART6_DataBuf[0]));
+	snprintf(s, size, "\r\n$$$$$$IRBE5,%li,%s,%s,%s,%s,%s%s", ++num, time, lat, lon, hei, spe, &(UART6_DataBuf[1]));
 	uint8_t l = strlen(s);
 	if(snprintf(s + l, size - l, "*%02x\r\n", get_check_sum(s))  > size - 4 - 1){
 		//buffer overflow
