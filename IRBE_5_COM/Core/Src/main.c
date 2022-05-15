@@ -244,28 +244,43 @@ int main(void)
 //	uint8_t check_sum;
 //	uint8_t check_sum_arr[4] = {0, 0, 0, 0};
 
-	uint8_t tel_dataBuf[80];
-	uint8_t gsm_dataBuf[50];
+	uint8_t tel_dataBuf[110];
+	uint8_t gsm_dataBuf[80];
 	memset(tel_dataBuf, 0, sizeof(tel_dataBuf));
 
 	//HAL_UART_Transmit_IT(&huart6, UART6_TxBuf, 2);
 
 	while(GPS_IsData() == GPS_NOK);
-
+	uint8_t new_temp_data = 0;
 	memset(UART6_RxBuf, 48, sizeof(UART6_RxBuf));
-
+	HAL_ADC_MspInit(&hadc1);
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-	 if(do_send_tm){ // its time to send gps coordinates
+	if(gsmRec){
+		//HAL_GPIO_ReadPin(GSM_GPIO1INT_GPIO_Port, GSM_GPIO1INT_Pin) < parbauda vai GSM ir gatavs rukat
+		make_string_gsm((char *)gsm_dataBuf, sizeof(gsm_dataBuf));
+		if(GSM_Check_Signal()){
+			GSM_Message_Send(gsm_dataBuf, strlen((char *)gsm_dataBuf), 28654641);
+		}
+
+		GSM_Off();
+
+		gsmRec = 0;
+		HAL_TIM_Base_Start_IT(&htim5);
+	}
+	if(do_send_tm){ // its time to send gps coordinates
 		 for(uint8_t tries = 0; tries < 5; tries++){
+			 memset(UART6_DataBuf, 0, sizeof(UART6_DataBuf));
 			 UART6_TxBuf[0] = 0x03;
 			 UART6_TxBuf[1] = 0x99;
-			 HAL_GPIO_WritePin(LED_0_GPIO_Port, LED_0_Pin, GPIO_PIN_SET);
 			 HAL_UART_Transmit_IT(&huart6, UART6_TxBuf, 2);
+			 while(UART6_RxIsData != 1);
+			 UART6_RxIsData = 0;
+			 HAL_GPIO_WritePin(LED_0_GPIO_Port, LED_0_Pin, GPIO_PIN_SET);
 			 make_string((char *)tel_dataBuf, sizeof(tel_dataBuf));
 			 RTTY_Send(&SX1278, tel_dataBuf, strlen((char *)tel_dataBuf));
 			 HAL_GPIO_WritePin(LED_0_GPIO_Port, LED_0_Pin, GPIO_PIN_RESET);
@@ -275,7 +290,7 @@ int main(void)
 		 receive_data = 1;
 		 HAL_TIM_Base_Start_IT(&htim2);
 	}
-	 if(receive_data){
+	if(receive_data){
 		if(sec_gps == 0){
 			SX1278_FSK_EntryRx(&SX1278, 8);
 			HAL_GPIO_WritePin(LED_3_GPIO_Port, LED_3_Pin, GPIO_PIN_SET);
@@ -303,20 +318,7 @@ int main(void)
 			}
 			loraModuleIrq = 0;
 		}
-	 }
-		if(gsmRec){
-			//HAL_GPIO_ReadPin(GSM_GPIO1INT_GPIO_Port, GSM_GPIO1INT_Pin) < parbauda vai GSM ir gatavs rukat
-			make_string_gsm((char *)gsm_dataBuf, sizeof(gsm_dataBuf));
-			if(GSM_Check_Signal()){
-				GSM_Message_Send(gsm_dataBuf, strlen((char *)gsm_dataBuf), 28654641);
-			}
-
-			GSM_Off();
-
-			gsmRec = 0;
-			HAL_TIM_Base_Start_IT(&htim5);
-		}
-
+	}
   }
     /* USER CODE END WHILE */
 
@@ -900,14 +902,7 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart){
 		//HAL_UART_Receive_DMA(&huart1, &rxBuf, 1);
 	}
 
-	if(huart == &huart6)
-	{
-		if(UART6_RxIsData == 1){
-			for (uint8_t i = 0; i < UART6_RxBytes; i++)
-				UART6_DataBuf[i] = UART6_RxBuf[i];
-			UART6_RxIsData = 0;
-			UART6_RxBytes = 2;
-		}else{
+	if(huart == &huart6){
 			uint8_t Command = UART6_RxBuf[0];
 			uint8_t Parameter = UART6_RxBuf[1];
 
@@ -918,9 +913,13 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart){
 			switch(Command){
 				// Receive data from MCU
 				case 0x02:
-					UART6_RxIsData = 1;
 					UART6_RxBytes = Parameter;
 					HAL_UART_Receive_IT(&huart6, UART6_RxBuf, Parameter);
+					for (uint8_t i = 0; i < UART6_RxBytes; i++)
+						UART6_DataBuf[i] = UART6_RxBuf[i];
+					UART6_RxIsData = 1;
+					UART6_RxIsData = 0;
+					UART6_RxBytes = 2;
 				break;
 				// Send data to MCU
 				case 0x03:
@@ -934,7 +933,6 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart){
 					//HAL_UART_Receive_IT(&huart6, UART6_RxBuf, UART6_RxBytes);
 				break;
 			}
-		}
 		memset(UART6_RxBuf, 48, sizeof(UART6_RxBuf));
 	}
 }
@@ -1047,7 +1045,7 @@ void make_string(char *s, uint8_t size){
 	GPS_GetHei(hei);
 	GPS_GetSpe(spe);
 
-	snprintf(s, size, "\r\n$$IRBE5,%li,%s,%s,%s,%s,%s%s,%u", ++num, time, lat, lon, hei, spe, &(UART6_DataBuf[1]), Get_Temperature());
+	snprintf(s, size, "\r\n$$IRBE5,%li,%s,%s,%s,%s,%s%s,%u", ++num, time, lat, lon, hei, spe, &(UART6_DataBuf[1]), sampleInput());
 	uint8_t l = strlen((char *)s);
 	if(snprintf(s + l, size - l, "*%02x\r\n", get_check_sum((char *)s))  > size - 4 - 1){
 		//buffer overflow
@@ -1073,25 +1071,54 @@ void make_string_gsm(char *s, uint8_t size){
 	snprintf(s, size, "Latitude:%s\nLongitude:%s\nHeight ASL:%s",lat, lon, hei);
 }
 
-uint16_t Get_Temperature(void){
+//uint16_t Get_Temperature(void){
+//
+//	uint32_t value = 0;
+//	uint16_t result = 0;
+//	double temperature = 0;
+//
+////	// Read channel 16 The value of the internal temperature sensor
+////	value = HAL_ADC_GetValue(&hadc1);
+////	// Converted to voltage value
+////	temperature = (float)value * (0.0008056640625); // 3.3 / 4096
+////
+////	// It turns into a temperature value
+////	temperature = (temperature - 0.76) / 0.0025 + 25;
+////	temperature *= 100;
+//	temperature =  value&0x0fff;// 12 bit result
+//	temperature *= 3300;
+//	temperature /= 0xfff; //Reading in mV
+//	temperature /= 1000.0; //Reading in Volts
+//	temperature -= 0.760; // Subtract the reference voltage at 25�C
+//	temperature /= .0025; // Divide by slope 2.5mV
+//	temperature += 25.0; // Add the 25�C
+//	result = temperature;
+//
+//	return result;
+//}
+uint16_t sampleInput(void){
+	  float TemperatureValue = 0;
+	  uint16_t value = 0;
+	  if (HAL_ADC_Start(&hadc1) != HAL_OK){
+		return HAL_ERROR;
+	  }
+	  if (HAL_ADC_PollForConversion(&hadc1, HAL_MAX_DELAY) != HAL_OK) {
+	  return HAL_ERROR;
+	  }
+	  if((HAL_ADC_GetState(&hadc1) & HAL_ADC_STATE_REG_EOC) !=  HAL_ADC_STATE_REG_EOC){
+	  return HAL_ERROR;
+	  }
+	  value = HAL_ADC_GetValue(&hadc1);
+	  TemperatureValue = value & 0x0fff;// 12 bit result
+	  TemperatureValue *= 3300;
+	  TemperatureValue /= 0xfff; //Reading in mV
+	  TemperatureValue /= 1000.0; //Reading in Volts
+	  TemperatureValue -= 0.760; // Subtract the reference voltage at 25�C
+	  TemperatureValue /= .0025; // Divide by slope 2.5mV
+	  TemperatureValue += 25.0; // Add the 25�C
+	  return TemperatureValue;
+  }
 
-	uint32_t value = 0;
-	uint16_t result = 0;
-	double temperature = 0;
-
-	// Read channel 16 The value of the internal temperature sensor
-	value = Get_Adc_Average(ADC_Channel_16, 10);
-
-	// Converted to voltage value
-	temperature = (float)value * (3.3 / 4096);
-
-	// It turns into a temperature value
-	temperature = (temperature - 0.76) / 0.0025 + 25;
-	temperature *= 100;
-	result = temperature;
-
-	return result;
-}
 
 /* USER CODE END 4 */
 
