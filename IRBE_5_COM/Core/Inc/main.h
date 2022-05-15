@@ -94,6 +94,7 @@ uint32_t CalcCRC(uint8_t * pData, uint32_t DataLength);
 //static uint8_t revbit_8(uint8_t uData);
 unsigned char reverse_bits(unsigned char b);
 uint8_t get_check_sum(char *string);
+uint16_t Get_Temperature(void);
 /* USER CODE END EFP */
 
 /* Private defines -----------------------------------------------------------*/

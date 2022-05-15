@@ -46,6 +46,8 @@
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
+ADC_HandleTypeDef hadc1;
+
 CRC_HandleTypeDef hcrc;
 
 SPI_HandleTypeDef hspi1;
@@ -90,6 +92,7 @@ static void MX_TIM3_Init(void);
 static void MX_CRC_Init(void);
 static void MX_TIM4_Init(void);
 static void MX_TIM5_Init(void);
+static void MX_ADC1_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -189,11 +192,12 @@ int main(void)
   MX_CRC_Init();
   MX_TIM4_Init();
   MX_TIM5_Init();
+  MX_ADC1_Init();
   /* USER CODE BEGIN 2 */
 
   //HAL_TIM_Base_Start_IT(&htim2);
   //HAL_TIM_Base_Start_IT(&htim3);
-  HAL_TIM_Base_Start_IT(&htim4);
+  HAL_TIM_Base_Start_IT(&htim5);
 
   SX1278_hw_t SX1278_hw;
   SX1278_t SX1278;
@@ -262,7 +266,7 @@ int main(void)
 			 UART6_TxBuf[1] = 0x99;
 			 HAL_GPIO_WritePin(LED_0_GPIO_Port, LED_0_Pin, GPIO_PIN_SET);
 			 HAL_UART_Transmit_IT(&huart6, UART6_TxBuf, 2);
-			 make_string((char *)tel_dataBuf, sizeof((char *)tel_dataBuf));
+			 make_string((char *)tel_dataBuf, sizeof(tel_dataBuf));
 			 RTTY_Send(&SX1278, tel_dataBuf, strlen((char *)tel_dataBuf));
 			 HAL_GPIO_WritePin(LED_0_GPIO_Port, LED_0_Pin, GPIO_PIN_RESET);
 		 }
@@ -301,9 +305,8 @@ int main(void)
 		}
 	 }
 		if(gsmRec){
-
 			//HAL_GPIO_ReadPin(GSM_GPIO1INT_GPIO_Port, GSM_GPIO1INT_Pin) < parbauda vai GSM ir gatavs rukat
-			make_string_gsm((char *)gsm_dataBuf, sizeof((char *)gsm_dataBuf));
+			make_string_gsm((char *)gsm_dataBuf, sizeof(gsm_dataBuf));
 			if(GSM_Check_Signal()){
 				GSM_Message_Send(gsm_dataBuf, strlen((char *)gsm_dataBuf), 28654641);
 			}
@@ -311,7 +314,7 @@ int main(void)
 			GSM_Off();
 
 			gsmRec = 0;
-			HAL_TIM_Base_Start_IT(&htim4);
+			HAL_TIM_Base_Start_IT(&htim5);
 		}
 
   }
@@ -362,6 +365,56 @@ void SystemClock_Config(void)
   {
     Error_Handler();
   }
+}
+
+/**
+  * @brief ADC1 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_ADC1_Init(void)
+{
+
+  /* USER CODE BEGIN ADC1_Init 0 */
+
+  /* USER CODE END ADC1_Init 0 */
+
+  ADC_ChannelConfTypeDef sConfig = {0};
+
+  /* USER CODE BEGIN ADC1_Init 1 */
+
+  /* USER CODE END ADC1_Init 1 */
+  /** Configure the global features of the ADC (Clock, Resolution, Data Alignment and number of conversion)
+  */
+  hadc1.Instance = ADC1;
+  hadc1.Init.ClockPrescaler = ADC_CLOCK_SYNC_PCLK_DIV4;
+  hadc1.Init.Resolution = ADC_RESOLUTION_12B;
+  hadc1.Init.ScanConvMode = DISABLE;
+  hadc1.Init.ContinuousConvMode = DISABLE;
+  hadc1.Init.DiscontinuousConvMode = DISABLE;
+  hadc1.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_NONE;
+  hadc1.Init.ExternalTrigConv = ADC_SOFTWARE_START;
+  hadc1.Init.DataAlign = ADC_DATAALIGN_RIGHT;
+  hadc1.Init.NbrOfConversion = 1;
+  hadc1.Init.DMAContinuousRequests = DISABLE;
+  hadc1.Init.EOCSelection = ADC_EOC_SINGLE_CONV;
+  if (HAL_ADC_Init(&hadc1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /** Configure for the selected ADC regular channel its corresponding rank in the sequencer and its sample time.
+  */
+  sConfig.Channel = ADC_CHANNEL_TEMPSENSOR;
+  sConfig.Rank = 1;
+  sConfig.SamplingTime = ADC_SAMPLETIME_3CYCLES;
+  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN ADC1_Init 2 */
+
+  /* USER CODE END ADC1_Init 2 */
+
 }
 
 /**
@@ -539,7 +592,7 @@ static void MX_TIM4_Init(void)
   htim4.Instance = TIM4;
   htim4.Init.Prescaler = 32000;
   htim4.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim4.Init.Period = 13125;
+  htim4.Init.Period = 7875;
   htim4.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim4.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
   if (HAL_TIM_Base_Init(&htim4) != HAL_OK)
@@ -582,9 +635,9 @@ static void MX_TIM5_Init(void)
 
   /* USER CODE END TIM5_Init 1 */
   htim5.Instance = TIM5;
-  htim5.Init.Prescaler = 32000;
+  htim5.Init.Prescaler = 65535;
   htim5.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim5.Init.Period = 7875;
+  htim5.Init.Period = 384300;
   htim5.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim5.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
   if (HAL_TIM_Base_Init(&htim5) != HAL_OK)
@@ -923,12 +976,12 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim){
 
 	if(htim->Instance == TIM4){
 		HAL_TIM_Base_Stop_IT(&htim4);
-		GSM_On();
-		HAL_TIM_Base_Start_IT(&htim5);
+		gsmRec = 1;
 	}
 	if(htim->Instance == TIM5){
 		HAL_TIM_Base_Stop_IT(&htim5);
-		gsmRec = 1;
+		GSM_On();
+		HAL_TIM_Base_Start_IT(&htim4);
 	}
 }
 
@@ -994,7 +1047,7 @@ void make_string(char *s, uint8_t size){
 	GPS_GetHei(hei);
 	GPS_GetSpe(spe);
 
-	snprintf(s, size, "\r\n$$IRBE5,%li,%s,%s,%s,%s,%s%s", ++num, time, lat, lon, hei, spe, &(UART6_DataBuf[1]));
+	snprintf(s, size, "\r\n$$IRBE5,%li,%s,%s,%s,%s,%s%s,%u", ++num, time, lat, lon, hei, spe, &(UART6_DataBuf[1]), Get_Temperature());
 	uint8_t l = strlen((char *)s);
 	if(snprintf(s + l, size - l, "*%02x\r\n", get_check_sum((char *)s))  > size - 4 - 1){
 		//buffer overflow
@@ -1020,6 +1073,25 @@ void make_string_gsm(char *s, uint8_t size){
 	snprintf(s, size, "Latitude:%s\nLongitude:%s\nHeight ASL:%s",lat, lon, hei);
 }
 
+uint16_t Get_Temperature(void){
+
+	uint32_t value = 0;
+	uint16_t result = 0;
+	double temperature = 0;
+
+	// Read channel 16 The value of the internal temperature sensor
+	value = Get_Adc_Average(ADC_Channel_16, 10);
+
+	// Converted to voltage value
+	temperature = (float)value * (3.3 / 4096);
+
+	// It turns into a temperature value
+	temperature = (temperature - 0.76) / 0.0025 + 25;
+	temperature *= 100;
+	result = temperature;
+
+	return result;
+}
 
 /* USER CODE END 4 */
 
