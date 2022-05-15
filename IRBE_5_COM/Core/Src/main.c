@@ -53,6 +53,7 @@ SPI_HandleTypeDef hspi1;
 TIM_HandleTypeDef htim2;
 TIM_HandleTypeDef htim3;
 TIM_HandleTypeDef htim4;
+TIM_HandleTypeDef htim5;
 
 UART_HandleTypeDef huart1;
 UART_HandleTypeDef huart2;
@@ -88,6 +89,7 @@ static void MX_TIM2_Init(void);
 static void MX_TIM3_Init(void);
 static void MX_CRC_Init(void);
 static void MX_TIM4_Init(void);
+static void MX_TIM5_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -186,10 +188,12 @@ int main(void)
   MX_TIM3_Init();
   MX_CRC_Init();
   MX_TIM4_Init();
+  MX_TIM5_Init();
   /* USER CODE BEGIN 2 */
 
   //HAL_TIM_Base_Start_IT(&htim2);
   //HAL_TIM_Base_Start_IT(&htim3);
+  HAL_TIM_Base_Start_IT(&htim4);
 
   SX1278_hw_t SX1278_hw;
   SX1278_t SX1278;
@@ -225,16 +229,6 @@ int main(void)
   		return 0;
   	}
 
-  	//GSM_On();
-  	//HAL_Delay(3000);
-	//uint8_t text[] = "GSM_TEST";
-
-	//GSM_STATE = HAL_GPIO_ReadPin(GSM_GPIO1INT_GPIO_Port, GSM_GPIO1INT_Pin);
-
-//	 if(GSM_Check_Signal()){
-//		GSM_Message_Send(text, sizeof(text), 28654641);
-//	  }
-
 	MODE_Set(&SX1278, mode);
 	if(mode == 0){
 		ret = SX1278_LoRaEntryRx(&SX1278, MIN_PACKETLENGTH, 2000);
@@ -246,10 +240,9 @@ int main(void)
 //	uint8_t check_sum;
 //	uint8_t check_sum_arr[4] = {0, 0, 0, 0};
 
-	char tel_dataBuf[120];
+	uint8_t tel_dataBuf[80];
+	uint8_t gsm_dataBuf[50];
 	memset(tel_dataBuf, 0, sizeof(tel_dataBuf));
-
-//	uint8_t temp;
 
 	//HAL_UART_Transmit_IT(&huart6, UART6_TxBuf, 2);
 
@@ -269,11 +262,11 @@ int main(void)
 			 UART6_TxBuf[1] = 0x99;
 			 HAL_GPIO_WritePin(LED_0_GPIO_Port, LED_0_Pin, GPIO_PIN_SET);
 			 HAL_UART_Transmit_IT(&huart6, UART6_TxBuf, 2);
-			 make_string(tel_dataBuf, sizeof(tel_dataBuf));
-			 RTTY_Send(&SX1278, tel_dataBuf, strlen(tel_dataBuf));
-			 SX1278_FSK_TxPacket(&SX1278, info_message, 8, 100);
+			 make_string(tel_dataBuf, sizeof((char *)tel_dataBuf));
+			 RTTY_Send(&SX1278, tel_dataBuf, strlen((char *)tel_dataBuf));
 			 HAL_GPIO_WritePin(LED_0_GPIO_Port, LED_0_Pin, GPIO_PIN_RESET);
 		 }
+		 SX1278_FSK_TxPacket(&SX1278, info_message, 8, 100);
 		 do_send_tm = 0;
 		 receive_data = 1;
 		 HAL_TIM_Base_Start_IT(&htim2);
@@ -305,6 +298,19 @@ int main(void)
 				SX1278_FSK_TxPacket(&SX1278, nok_ack_message, 8, 100);
 			}
 			loraModuleIrq = 0;
+		}
+		if(gsmRec = 1 && GSM_STATE = HAL_GPIO_ReadPin(GSM_GPIO1INT_GPIO_Port, GSM_GPIO1INT_Pin)){
+			GSM_On();
+
+			make_string_gsm(gsm_dataBuf, sizeof(gsm_dataBuf));
+			if(GSM_Check_Signal()){
+				GSM_Message_Send(make_string_gsm, strlen((char *)make_string_gsm), 28654641);
+			}
+
+			GSM_Off();
+
+			gsmRec = 0;
+			HAL_TIM_Base_Start_IT(&htim4);
 		}
 	  }
   }
@@ -532,7 +538,7 @@ static void MX_TIM4_Init(void)
   htim4.Instance = TIM4;
   htim4.Init.Prescaler = 32000;
   htim4.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim4.Init.Period = 2625;
+  htim4.Init.Period = 13125;
   htim4.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim4.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
   if (HAL_TIM_Base_Init(&htim4) != HAL_OK)
@@ -553,6 +559,51 @@ static void MX_TIM4_Init(void)
   /* USER CODE BEGIN TIM4_Init 2 */
 
   /* USER CODE END TIM4_Init 2 */
+
+}
+
+/**
+  * @brief TIM5 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM5_Init(void)
+{
+
+  /* USER CODE BEGIN TIM5_Init 0 */
+
+  /* USER CODE END TIM5_Init 0 */
+
+  TIM_ClockConfigTypeDef sClockSourceConfig = {0};
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+
+  /* USER CODE BEGIN TIM5_Init 1 */
+
+  /* USER CODE END TIM5_Init 1 */
+  htim5.Instance = TIM5;
+  htim5.Init.Prescaler = 32000;
+  htim5.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim5.Init.Period = 7875;
+  htim5.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim5.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_Base_Init(&htim5) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
+  if (HAL_TIM_ConfigClockSource(&htim5, &sClockSourceConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim5, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM5_Init 2 */
+
+  /* USER CODE END TIM5_Init 2 */
 
 }
 
@@ -789,7 +840,6 @@ uint8_t CMD_Parse(uint8_t *buf, uint8_t len){
 }
 
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart){
-	//gsmRec = 1;
 	if(huart == &huart1){
 		HAL_UART_Receive_IT(&huart1, &rxBuf, 1);
 		GPS_Receive(rxBuf);
@@ -862,14 +912,21 @@ void MODE_Set(SX1278_t * module, uint8_t mode){
 }
 
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim){
-	if(htim->Instance == TIM3){
-		u_sec_delay = 1;
-	}
 	if(htim->Instance == TIM2){
 		sec_gps++;
 	}
-	if(htim->Instance == TIM4){
 
+	if(htim->Instance == TIM3){
+		u_sec_delay = 1;
+	}
+
+	if(htim->Instance == TIM4){
+		HAL_TIM_Base_Stop_IT(&htim4);
+		HAL_TIM_Base_Start_IT(&htim5);
+	}
+	if(htim->Instance == TIM5){
+		HAL_TIM_Base_Stop_IT(&htim5);
+		gsmRec = 1;
 	}
 }
 
@@ -914,9 +971,8 @@ uint8_t get_check_sum(char *string){
 	return XOR;
 }
 
-void make_string(char *s, uint8_t size){
+void make_string(uint8_t *s, uint8_t size){
 
-	//num++;
 	uint8_t time[9];
 	uint8_t lat[10];
 	uint8_t lon[10];
@@ -936,12 +992,30 @@ void make_string(char *s, uint8_t size){
 	GPS_GetHei(hei);
 	GPS_GetSpe(spe);
 
-	snprintf(s, size, "\r\n$$$$$$IRBE5,%li,%s,%s,%s,%s,%s%s", ++num, time, lat, lon, hei, spe, &(UART6_DataBuf[1]));
+	snprintf(s, size, "\r\n$$IRBE5,%li,%s,%s,%s,%s,%s%s", ++num, time, lat, lon, hei, spe, &(UART6_DataBuf[1]));
 	uint8_t l = strlen(s);
 	if(snprintf(s + l, size - l, "*%02x\r\n", get_check_sum(s))  > size - 4 - 1){
 		//buffer overflow
 		return;
 	}
+}
+
+void make_string_gsm(uint8_t *s, uint8_t size){
+
+	uint8_t lat[10];
+	uint8_t lon[10];
+	uint8_t hei[9];
+	//CLEAR TEMP BUFFERS (SOMETIMES IT HAS INFORMATION IN IT, BECAUSE IT USES MEMORY LOCATION THAT WERE TEMP USED FOR OTHER STUFF) ONLY WHEN THERE IS +1 elemt in array
+	memset(lat, 0, sizeof(lat));
+	memset(lon, 0, sizeof(lon));
+	memset(hei, 0, sizeof(hei));
+
+	//Get all params from satalites data
+	GPS_GetLat(lat);
+	GPS_GetLon(lon);
+	GPS_GetHei(hei);
+
+	snprintf(s, size, "Latitude:%s\nLongitude:%s\nHeight ASL:%s",lat, lon, hei);
 }
 
 
