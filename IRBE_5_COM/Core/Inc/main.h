@@ -87,11 +87,11 @@ void RTTY_Send(SX1278_t * module, uint8_t *buf, uint8_t len);
 void RTTY_SendSingle(SX1278_t * module, uint8_t buf, uint8_t timeout);
 uint8_t RTTY_Encoder(uint8_t *buf);
 uint32_t gps_CRC32_checksum(char *string, uint8_t length);
-void make_string(uint8_t *s, uint8_t size);
-void make_string_gsm(uint8_t *s, uint8_t size)
+void make_string(char *s, uint8_t size);
+void make_string_gsm(char *s, uint8_t size);
 uint32_t CalcCRC(uint8_t * pData, uint32_t DataLength);
-static uint32_t revbit(uint32_t uData);
-static uint8_t revbit_8(uint8_t uData);
+//static uint32_t revbit(uint32_t uData);
+//static uint8_t revbit_8(uint8_t uData);
 unsigned char reverse_bits(unsigned char b);
 uint8_t get_check_sum(char *string);
 /* USER CODE END EFP */

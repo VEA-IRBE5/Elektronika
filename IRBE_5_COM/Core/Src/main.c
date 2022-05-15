@@ -111,9 +111,9 @@ uint8_t ret = 0;
 uint8_t loraBuf[10] = {0};
 uint8_t buffer[15] = {0};
 uint8_t message[] = "&&\"/1,2.3--mini--salamini--desinas--1.2,3/\"";
-char info_message[8] = "##ready&";
-char ok_cut_rope_message[8] = "#ok_rope";
-char nok_ack_message[8] = "#nok_act";
+uint8_t info_message[8] = "##ready&";
+uint8_t ok_cut_rope_message[8] = "#ok_rope";
+uint8_t nok_ack_message[8] = "#nok_act";
 char TEST_BUF[100] = {0};
 uint8_t bufferLen = 0;
 uint8_t mode = 1;
@@ -262,7 +262,7 @@ int main(void)
 			 UART6_TxBuf[1] = 0x99;
 			 HAL_GPIO_WritePin(LED_0_GPIO_Port, LED_0_Pin, GPIO_PIN_SET);
 			 HAL_UART_Transmit_IT(&huart6, UART6_TxBuf, 2);
-			 make_string(tel_dataBuf, sizeof((char *)tel_dataBuf));
+			 make_string((char *)tel_dataBuf, sizeof((char *)tel_dataBuf));
 			 RTTY_Send(&SX1278, tel_dataBuf, strlen((char *)tel_dataBuf));
 			 HAL_GPIO_WritePin(LED_0_GPIO_Port, LED_0_Pin, GPIO_PIN_RESET);
 		 }
@@ -299,12 +299,13 @@ int main(void)
 			}
 			loraModuleIrq = 0;
 		}
-		if(gsmRec = 1 && GSM_STATE = HAL_GPIO_ReadPin(GSM_GPIO1INT_GPIO_Port, GSM_GPIO1INT_Pin)){
-			GSM_On();
+	 }
+		if(gsmRec){
 
-			make_string_gsm(gsm_dataBuf, sizeof(gsm_dataBuf));
+			//HAL_GPIO_ReadPin(GSM_GPIO1INT_GPIO_Port, GSM_GPIO1INT_Pin) < parbauda vai GSM ir gatavs rukat
+			make_string_gsm((char *)gsm_dataBuf, sizeof((char *)gsm_dataBuf));
 			if(GSM_Check_Signal()){
-				GSM_Message_Send(make_string_gsm, strlen((char *)make_string_gsm), 28654641);
+				GSM_Message_Send(gsm_dataBuf, strlen((char *)gsm_dataBuf), 28654641);
 			}
 
 			GSM_Off();
@@ -312,7 +313,7 @@ int main(void)
 			gsmRec = 0;
 			HAL_TIM_Base_Start_IT(&htim4);
 		}
-	  }
+
   }
     /* USER CODE END WHILE */
 
@@ -872,8 +873,8 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart){
 				case 0x03:
 					UART6_TxBuf[0] = 0x02;
 					UART6_TxBuf[1] = Parameter;
-					memcpy(&(UART6_TxBuf[2]), UART6_DataBuf, strlen(UART6_DataBuf) + 1);
-					HAL_UART_Transmit_IT(&huart6, UART6_TxBuf, strlen(UART6_TxBuf) + 1);
+					memcpy(&(UART6_TxBuf[2]), UART6_DataBuf, strlen((char *)UART6_DataBuf) + 1);
+					HAL_UART_Transmit_IT(&huart6, UART6_TxBuf, strlen((char *)UART6_TxBuf) + 1);
 				break;
 				default:
 					//nothing happens
@@ -922,6 +923,7 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim){
 
 	if(htim->Instance == TIM4){
 		HAL_TIM_Base_Stop_IT(&htim4);
+		GSM_On();
 		HAL_TIM_Base_Start_IT(&htim5);
 	}
 	if(htim->Instance == TIM5){
@@ -971,7 +973,7 @@ uint8_t get_check_sum(char *string){
 	return XOR;
 }
 
-void make_string(uint8_t *s, uint8_t size){
+void make_string(char *s, uint8_t size){
 
 	uint8_t time[9];
 	uint8_t lat[10];
@@ -993,14 +995,14 @@ void make_string(uint8_t *s, uint8_t size){
 	GPS_GetSpe(spe);
 
 	snprintf(s, size, "\r\n$$IRBE5,%li,%s,%s,%s,%s,%s%s", ++num, time, lat, lon, hei, spe, &(UART6_DataBuf[1]));
-	uint8_t l = strlen(s);
-	if(snprintf(s + l, size - l, "*%02x\r\n", get_check_sum(s))  > size - 4 - 1){
+	uint8_t l = strlen((char *)s);
+	if(snprintf(s + l, size - l, "*%02x\r\n", get_check_sum((char *)s))  > size - 4 - 1){
 		//buffer overflow
 		return;
 	}
 }
 
-void make_string_gsm(uint8_t *s, uint8_t size){
+void make_string_gsm(char *s, uint8_t size){
 
 	uint8_t lat[10];
 	uint8_t lon[10];
