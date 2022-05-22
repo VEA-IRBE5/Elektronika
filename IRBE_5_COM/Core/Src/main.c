@@ -144,7 +144,7 @@ uint8_t sec_lora_rec = 0;
 //UART
 
 uint8_t UART6_RxIsData = 0;
-uint8_t UART6_TxBuf[2] = {0};
+uint8_t UART6_TxBuf[50] = {0};
 uint8_t UART6_DataBuf[50] = {0};
 uint8_t UART6_RxBuf[50] = {0};
 uint8_t UART6_RxBytes = 4;
@@ -259,13 +259,25 @@ int main(void)
 	GPS_GetTime(time);
 	UART6_TxBuf[0] = 0x02;
 	UART6_TxBuf[1] = 5;
-	HAL_UART_Transmit_IT(&huart6, UART6_TxBuf, sizeof(UART6_TxBuf));
-	snprintf(UART6_TxBuf, sizeof(UART6_TxBuf), "*%d%d%d", charToInt(&(time[6])), charToInt(&(time[3])), charToInt(&(time[0]))/*, charToInt(date), charToInt(month), charToInt(year)*/);
-	snprintf(UART6_TxBuf + strlen((char *) UART6_TxBuf), sizeof(UART6_TxBuf) - strlen((char *) UART6_TxBuf), "*%d", crc_xor(UART6_TxBuf));
+	UART6_TxBuf[2] = "*";
+	UART6_TxBuf[3] = get_check_sum(UART6_TxBuf);
+	HAL_UART_Transmit_IT(&huart6, UART6_TxBuf, 4);
+	memset(UART6_TxBuf, 0, sizeof(UART6_TxBuf));
+	UART6_TxBuf[0] = charToInt(&(time[6]));
+	UART6_TxBuf[1] = charToInt(&(time[3]));
+	UART6_TxBuf[2] = charToInt(&(time[0]));
+	UART6_TxBuf[3] = "*";
+	UART6_TxBuf[4] = get_check_sum(UART6_TxBuf);
+	//snprintf(UART6_TxBuf, sizeof(UART6_TxBuf), "*%s%s%s", charToInt(&(time[6])), charToInt(&(time[3])), charToInt(&(time[0]))/*, charToInt(date), charToInt(month), charToInt(year)*/);
+	//snprintf(UART6_TxBuf + strlen((char *) UART6_TxBuf), sizeof(UART6_TxBuf) - strlen((char *) UART6_TxBuf), "*%s", get_check_sum(UART6_TxBuf));
 	HAL_UART_Transmit_IT(&huart6, UART6_TxBuf, strlen((char *)UART6_TxBuf));
+	memset(UART6_TxBuf, 0, sizeof(UART6_TxBuf));
 	UART6_TxBuf[0] = 0x42;
 	UART6_TxBuf[1] = 0x88;
-	memset(UART6_RxBuf, 48, sizeof(UART6_RxBuf));
+	UART6_TxBuf[2] = '*';
+	UART6_TxBuf[3] = get_check_sum(UART6_TxBuf);
+	//HAL_UART_Transmit_IT(&huart6, UART6_TxBuf, strlen((char *)UART6_TxBuf));
+	memset(UART6_RxBuf, 0, sizeof(UART6_RxBuf));
 	HAL_ADC_MspInit(&hadc1);
 	HAL_UART_Receive_IT(&huart6, UART6_RxBuf, UART6_RxBytes);
   /* USER CODE END 2 */
@@ -288,10 +300,13 @@ int main(void)
 	}
 	if(do_send_tm){ // its time to send gps coordinates
 		 for(uint8_t tries = 0; tries < 5; tries++){
-			 memset(UART6_DataBuf, 0, sizeof(UART6_DataBuf));
+			 //memset(UART6_DataBuf, 0, sizeof(UART6_DataBuf));
+			 memset(UART6_TxBuf, 0, sizeof(UART6_TxBuf));
 			 UART6_TxBuf[0] = 0x03;
 			 UART6_TxBuf[1] = 0x99;
-			 snprintf(UART6_TxBuf + strlen((char *) UART6_TxBuf), sizeof(UART6_TxBuf) - strlen((char *) UART6_TxBuf), "*%d", crc_xor(UART6_TxBuf));
+			 UART6_TxBuf[2] = '*';
+			 UART6_TxBuf[3] = crc_xor(UART6_TxBuf);
+			 //snprintf(UART6_TxBuf + strlen((char *) UART6_TxBuf), sizeof(UART6_TxBuf) - strlen((char *) UART6_TxBuf), "*%d", crc_xor(UART6_TxBuf));
 			 HAL_UART_Transmit_IT(&huart6, UART6_TxBuf, 4);
 			 HAL_GPIO_WritePin(LED_0_GPIO_Port, LED_0_Pin, GPIO_PIN_SET);
 			 make_string((char *)tel_dataBuf, sizeof(tel_dataBuf));
@@ -1053,7 +1068,7 @@ uint8_t get_check_sum(char *string){
 }
 uint8_t crc_xor(char *string){
 	uint8_t XOR = 0;
-	for(uint8_t i = 0; string[i] != '*' ; i++){
+	for(uint8_t i = 0; string[i] != '*' && i < strlen(string); i++){
 		XOR = XOR ^ string[i];
 	}
 	return XOR;
@@ -1081,7 +1096,7 @@ void make_string(char *s, uint8_t size){
 	GPS_GetHei(hei);
 	GPS_GetSpe(spe);
 
-	snprintf(s, size, "\r\n$$IRBE5,%li,%s,%s,%s,%s,%s,%s,%.2f", ++num, time, lat, lon, hei, spe, &(UART6_DataBuf[1]), temp_mcu());
+	snprintf(s, size, "\r\n$$IRBE5,%li,%s,%s,%s,%s,%s,%s,%.2f", ++num, time, lat, lon, hei, spe, UART6_DataBuf, temp_mcu());
 	uint8_t l = strlen((char *)s);
 	if(snprintf(s + l, size - l, "*%02x\r\n", get_check_sum((char *)s))  > size - 4 - 1){
 		//buffer overflow
@@ -1131,9 +1146,13 @@ float temp_mcu(void){
 	  return TemperatureValue;
   }
 uint8_t charToInt(char* c){
-	uint8_t num = 0;
+	uint8_t num[2] = {0};
 	for(uint8_t i = 0; 2 > i; i++){
-	   	num += c[i] - '0';
+		if(i == 0){
+			num[0] += (c[i] - '0') * 10;
+		}else{
+			num[0] += c[i] - '0';
+		}
 	}
 	return num;
 }
