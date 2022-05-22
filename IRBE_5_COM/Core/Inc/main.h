@@ -95,7 +95,9 @@ uint32_t CalcCRC(uint8_t * pData, uint32_t DataLength);
 unsigned char reverse_bits(unsigned char b);
 uint8_t get_check_sum(char *string);
 //uint16_t Get_Temperature(void);
-uint16_t sampleInput(void);
+float temp_mcu(void);
+uint8_t crc_xor(char *string);
+uint8_t charToInt(char* c);
 /* USER CODE END EFP */
 
 /* Private defines -----------------------------------------------------------*/

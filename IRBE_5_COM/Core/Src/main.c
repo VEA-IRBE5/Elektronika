@@ -114,11 +114,10 @@ uint8_t ret = 0;
 uint8_t loraBuf[10] = {0};
 uint8_t buffer[15] = {0};
 uint8_t message[] = "&&\"/1,2.3--mini--salamini--desinas--1.2,3/\"";
-uint8_t info_message[8] = "##ready&";
-uint8_t ok_cut_rope_message[8] = "#ok_rope";
+uint8_t ready_to_receive[8] = "##ready&";
+uint8_t not_to_receive[8] = "#nready&";
+uint8_t ok_ack_message[8] = "#ok_act*";
 uint8_t nok_ack_message[8] = "#nok_act";
-char TEST_BUF[100] = {0};
-uint8_t bufferLen = 0;
 uint8_t mode = 1;
 uint32_t recvd = 0; // data received
 uint32_t recve = 0; // errors received
@@ -148,7 +147,8 @@ uint8_t UART6_RxIsData = 0;
 uint8_t UART6_TxBuf[2] = {0};
 uint8_t UART6_DataBuf[50] = {0};
 uint8_t UART6_RxBuf[50] = {0};
-uint8_t UART6_RxBytes = 2;
+uint8_t UART6_RxBytes = 4;
+uint8_t UART2_RxIsData = 0;
 
 //UART
 
@@ -241,19 +241,32 @@ int main(void)
 	}
 
 	 //HAL_UART_Receive_DMA(&huart6, &cmd_rx_buffer, cmd_rx_buffer_size);
-//	uint8_t check_sum;
-//	uint8_t check_sum_arr[4] = {0, 0, 0, 0};
+	//	uint8_t check_sum;
+	//	uint8_t check_sum_arr[4] = {0, 0, 0, 0};
 
 	uint8_t tel_dataBuf[110];
 	uint8_t gsm_dataBuf[80];
 	memset(tel_dataBuf, 0, sizeof(tel_dataBuf));
 
 	//HAL_UART_Transmit_IT(&huart6, UART6_TxBuf, 2);
-
 	while(GPS_IsData() == GPS_NOK);
-	uint8_t new_temp_data = 0;
+	uint8_t year[2];
+	uint8_t month[2];
+	uint8_t date[2];
+	uint8_t time[11];
+	GPS_GetYear(year);
+	GPS_GetMonth(month);
+	GPS_GetDate(date);
+	GPS_GetTime(time);
+	UART6_TxBuf[0] = 0x42;
+	UART6_TxBuf[1] = 8;
+	HAL_UART_Transmit_IT(&huart6, UART6_TxBuf, 2);
+	snprintf(UART6_TxBuf, sizeof(UART6_TxBuf), "*%d%d%d%d%d%d", charToInt(&(time[6])), charToInt(&(time[3])), charToInt(&(time[0])), charToInt(year), charToInt(month), charToInt(date));
+	snprintf(UART6_TxBuf + strlen((char *) UART6_TxBuf), sizeof(UART6_TxBuf) - strlen((char *) UART6_TxBuf), "*%d", crc_xor(UART6_TxBuf));
+	HAL_UART_Transmit_IT(&huart6, UART6_TxBuf, strlen((char *)UART6_TxBuf));
 	memset(UART6_RxBuf, 48, sizeof(UART6_RxBuf));
 	HAL_ADC_MspInit(&hadc1);
+	HAL_UART_Receive_IT(&huart6, UART6_RxBuf, UART6_RxBytes);
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -277,21 +290,20 @@ int main(void)
 			 memset(UART6_DataBuf, 0, sizeof(UART6_DataBuf));
 			 UART6_TxBuf[0] = 0x03;
 			 UART6_TxBuf[1] = 0x99;
-			 HAL_UART_Transmit_IT(&huart6, UART6_TxBuf, 2);
-			 while(UART6_RxIsData != 1);
-			 UART6_RxIsData = 0;
+			 snprintf(UART6_TxBuf + strlen((char *) UART6_TxBuf), sizeof(UART6_TxBuf) - strlen((char *) UART6_TxBuf), "*%d", crc_xor(UART6_TxBuf));
+			 HAL_UART_Transmit_IT(&huart6, UART6_TxBuf, 4);
 			 HAL_GPIO_WritePin(LED_0_GPIO_Port, LED_0_Pin, GPIO_PIN_SET);
 			 make_string((char *)tel_dataBuf, sizeof(tel_dataBuf));
 			 RTTY_Send(&SX1278, tel_dataBuf, strlen((char *)tel_dataBuf));
 			 HAL_GPIO_WritePin(LED_0_GPIO_Port, LED_0_Pin, GPIO_PIN_RESET);
 		 }
-		 SX1278_FSK_TxPacket(&SX1278, info_message, 8, 100);
 		 do_send_tm = 0;
 		 receive_data = 1;
 		 HAL_TIM_Base_Start_IT(&htim2);
 	}
 	if(receive_data){
 		if(sec_gps == 0){
+			SX1278_FSK_TxPacket(&SX1278, ready_to_receive, 8, 100);
 			SX1278_FSK_EntryRx(&SX1278, 8);
 			HAL_GPIO_WritePin(LED_3_GPIO_Port, LED_3_Pin, GPIO_PIN_SET);
 		}else if(sec_gps >= 5){
@@ -299,6 +311,7 @@ int main(void)
 			receive_data = 0;
 			sec_gps = 0;
 			HAL_GPIO_WritePin(LED_3_GPIO_Port, LED_3_Pin, GPIO_PIN_RESET);
+			SX1278_FSK_TxPacket(&SX1278, not_to_receive, 8, 100);
 			HAL_TIM_Base_Stop_IT(&htim2);
 		}
 		if(loraModuleIrq){
@@ -312,7 +325,7 @@ int main(void)
 				HAL_UART_Transmit_IT(&huart6, UART6_TxBuf, 2);
 				// SENDING COMMAND TO MCU TO CUT THE ROPE
 
-				SX1278_FSK_TxPacket(&SX1278, ok_cut_rope_message, 8, 100);
+				SX1278_FSK_TxPacket(&SX1278, ok_ack_message, 8, 100);
 			}else{
 				SX1278_FSK_TxPacket(&SX1278, nok_ack_message, 8, 100);
 			}
@@ -906,32 +919,46 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart){
 			uint8_t Command = UART6_RxBuf[0];
 			uint8_t Parameter = UART6_RxBuf[1];
 
-			if(Command != 0x02){
-				UART6_RxBytes = 2;
-				HAL_UART_Receive_IT(&huart6, UART6_RxBuf, 2);
+			if (UART2_RxIsData == 1){
+						for (uint8_t i = 0; i < UART2_RxBytes; i++)
+							UART2_DataBuf[i] = UART2_RxBuf[i];
+						UART2_RxIsData = 0;
+						UART2_RxBytes = 2;
+						HAL_UART_Receive_IT(&huart2, UART2_RxBuf, 2);
+			}else{
+				switch(Command){
+					case 0x00:
+
+					break;
+					// Receive data from MCU
+					case 0x02:
+						if(crc_xor(UART6_RxBuf) == UART6_RxBuf[4]){
+							UART6_RxBytes = UART6_RxBuf[1];
+						}else{
+							UART6_RxBytes = 4;
+							HAL_UART_Transmit_IT(&huart6, UART6_TxBuf, 4);
+						}
+						HAL_UART_Receive_IT(&huart6, UART6_RxBuf, UART6_RxBytes);
+
+
+						for (uint8_t m = 0; m < UART6_RxBytes; m++)
+							UART6_DataBuf[m] = UART6_RxBuf[m + 1];
+
+					break;
+					// MCU requests data
+					case 0x03:
+						UART6_TxBuf[0] = 0x02;
+						UART6_TxBuf[1] = Parameter;
+					break;
+					default:
+						//nothing happens
+						//HAL_UART_Receive_IT(&huart6, UART6_RxBuf, UART6_RxBytes);
+					break;
+				}
 			}
-			switch(Command){
-				// Receive data from MCU
-				case 0x02:
-					UART6_RxBytes = Parameter;
-					HAL_UART_Receive_IT(&huart6, UART6_RxBuf, Parameter);
-					for (uint8_t i = 0; i < UART6_RxBytes; i++)
-						UART6_DataBuf[i] = UART6_RxBuf[i];
-					UART6_RxIsData = 1;
-					UART6_RxIsData = 0;
-					UART6_RxBytes = 2;
-				break;
-				// Send data to MCU
-				case 0x03:
-					UART6_TxBuf[0] = 0x02;
-					UART6_TxBuf[1] = Parameter;
-					memcpy(&(UART6_TxBuf[2]), UART6_DataBuf, strlen((char *)UART6_DataBuf) + 1);
-					HAL_UART_Transmit_IT(&huart6, UART6_TxBuf, strlen((char *)UART6_TxBuf) + 1);
-				break;
-				default:
-					//nothing happens
-					//HAL_UART_Receive_IT(&huart6, UART6_RxBuf, UART6_RxBytes);
-				break;
+			if(Command != 0x02){
+				UART6_RxBytes = 4;
+				HAL_UART_Receive_IT(&huart6, UART6_RxBuf, UART6_RxBytes);
 			}
 		memset(UART6_RxBuf, 48, sizeof(UART6_RxBuf));
 	}
@@ -956,6 +983,10 @@ void MODE_Set(SX1278_t * module, uint8_t mode){
 
 		  case 1:	// switch to FSK
 			  SX1278_FSK_Config(module);
+		  break;
+
+		  case 2: // RTTY config
+			  SX1278_RTTY_Config(module);
 		  break;
 
 		  default: // lets ignore that one
@@ -1018,7 +1049,14 @@ void RTTY_SendSingle(SX1278_t * module, uint8_t buf, uint8_t timeout){
 
 uint8_t get_check_sum(char *string){
 	uint8_t XOR = 0;
-	for(uint8_t i = 2; i < strlen(string) ; i++) {
+	for(uint8_t i = 1; i < strlen(string); i++) {
+		XOR = XOR ^ string[i];
+	}
+	return XOR;
+}
+uint8_t crc_xor(char *string){
+	uint8_t XOR = 0;
+	for(uint8_t i = 0; string[i] != '*' ; i++){
 		XOR = XOR ^ string[i];
 	}
 	return XOR;
@@ -1031,6 +1069,7 @@ void make_string(char *s, uint8_t size){
 	uint8_t lon[10];
 	uint8_t hei[9];
 	uint8_t spe[7];
+
 	//CLEAR TEMP BUFFERS (SOMETIMES IT HAS INFORMATION IN IT, BECAUSE IT USES MEMORY LOCATION THAT WERE TEMP USED FOR OTHER STUFF) ONLY WHEN THERE IS +1 elemt in array
 	memset(time, 0, sizeof(time));
 	memset(lat, 0, sizeof(lat));
@@ -1045,7 +1084,7 @@ void make_string(char *s, uint8_t size){
 	GPS_GetHei(hei);
 	GPS_GetSpe(spe);
 
-	snprintf(s, size, "\r\n$$IRBE5,%li,%s,%s,%s,%s,%s%s,%u", ++num, time, lat, lon, hei, spe, &(UART6_DataBuf[1]), sampleInput());
+	snprintf(s, size, "\r\n$$IRBE5,%li,%s,%s,%s,%s,%s,%s,%.2f", ++num, time, lat, lon, hei, spe, &(UART6_DataBuf[1]), temp_mcu());
 	uint8_t l = strlen((char *)s);
 	if(snprintf(s + l, size - l, "*%02x\r\n", get_check_sum((char *)s))  > size - 4 - 1){
 		//buffer overflow
@@ -1058,6 +1097,7 @@ void make_string_gsm(char *s, uint8_t size){
 	uint8_t lat[10];
 	uint8_t lon[10];
 	uint8_t hei[9];
+
 	//CLEAR TEMP BUFFERS (SOMETIMES IT HAS INFORMATION IN IT, BECAUSE IT USES MEMORY LOCATION THAT WERE TEMP USED FOR OTHER STUFF) ONLY WHEN THERE IS +1 elemt in array
 	memset(lat, 0, sizeof(lat));
 	memset(lon, 0, sizeof(lon));
@@ -1071,32 +1111,7 @@ void make_string_gsm(char *s, uint8_t size){
 	snprintf(s, size, "Latitude:%s\nLongitude:%s\nHeight ASL:%s",lat, lon, hei);
 }
 
-//uint16_t Get_Temperature(void){
-//
-//	uint32_t value = 0;
-//	uint16_t result = 0;
-//	double temperature = 0;
-//
-////	// Read channel 16 The value of the internal temperature sensor
-////	value = HAL_ADC_GetValue(&hadc1);
-////	// Converted to voltage value
-////	temperature = (float)value * (0.0008056640625); // 3.3 / 4096
-////
-////	// It turns into a temperature value
-////	temperature = (temperature - 0.76) / 0.0025 + 25;
-////	temperature *= 100;
-//	temperature =  value&0x0fff;// 12 bit result
-//	temperature *= 3300;
-//	temperature /= 0xfff; //Reading in mV
-//	temperature /= 1000.0; //Reading in Volts
-//	temperature -= 0.760; // Subtract the reference voltage at 25�C
-//	temperature /= .0025; // Divide by slope 2.5mV
-//	temperature += 25.0; // Add the 25�C
-//	result = temperature;
-//
-//	return result;
-//}
-uint16_t sampleInput(void){
+float temp_mcu(void){
 	  float TemperatureValue = 0;
 	  uint16_t value = 0;
 	  if (HAL_ADC_Start(&hadc1) != HAL_OK){
@@ -1118,7 +1133,13 @@ uint16_t sampleInput(void){
 	  TemperatureValue += 25.0; // Add the 25�C
 	  return TemperatureValue;
   }
-
+uint8_t charToInt(char* c){
+	uint8_t num = 0;
+	for(uint8_t i = 0; 2 > i; i++){
+	   	num += c[i] - '0';
+	}
+	return num;
+}
 
 /* USER CODE END 4 */
 

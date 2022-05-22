@@ -2,19 +2,16 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-
-uint8_t rxBuf;
-uint8_t rxTemp;
-
-//2 height
-//3 speed
-
-
-
 uint8_t gpsData[24] = {0}; //0 coord latitude //1 coord longitude "05723.06487N", "02132.70887E"
-uint8_t gpsHeight[8] = {0};
-uint8_t gpsSpeed[6] = {0};
-uint8_t gpsTime[6] = {0};
+uint8_t gpsHeight[8] = {0}; //2 height
+uint8_t gpsSpeed[6] = {0}; //3 speed
+uint8_t gpsTime[6] = {0}; // UTC time from GPGGA
+uint8_t gpsTime_UTC[9] = {0}; // UTC time from GPZDA
+uint8_t gps_date[3] = {0}; // date from GPZDA
+uint8_t gps_month[3] = {0}; // month from GPZDA
+uint8_t gps_year[5] = {0}; // year from GPZDA
+uint8_t local_zone_desc[3] = {0}; // DON"T KNOW
+uint8_t local_zone_min_desc[3] = {0}; // DON"T KNOW
 
 uint8_t gpsTemp[80];
 uint8_t gpsTempLen = 255;
@@ -31,7 +28,7 @@ uint8_t isNewData = 0;
 void GPS_Receive(uint8_t data){
 	if(data == '$'){
 		gpsTempLen = 0;
-	}else if((data == 13 || data == 10) && gpsTempLen != 255){
+	}else if((data == 13 || data == 10) && gpsTempLen != 255){ // looks for new_line or vertical tab
 		GPS_Parse(gpsTemp, gpsTempLen);
 		gpsTempLen = 255;
 	}else if(gpsTempLen != 255){
@@ -110,15 +107,42 @@ uint8_t GPS_Parse(uint8_t *buf, uint8_t len){
 
 	}else if(strncmp("GPVTG", (char *)buf, 5) == 0){ // get speed in km/h
 		if(GPS_CheckSum(buf, len) == GPS_OK){
-			if(GPS_CheckSum(buf, len) == GPS_OK){
+			uint8_t step = 0;
+			uint8_t i = 0;
+			while(step < 8){
+				if(buf[i] == ','){
+					step++;
+					if(step == 7){
+						i++;
+						uint8_t tempData[12] = {0};
+						uint8_t leng = 0;
+						while(buf[i] != ','){
+							tempData[leng] = buf[i];
+							leng++;
+							i++;
+						}
+						if(leng == 0){
+							return GPS_NOK;
+						}
+						memset(gpsSpeed, '0', 6);
+						memcpy(gpsSpeed + (6-leng), tempData, leng);
+					}
+				}
+				i++;
+			}
+			return GPS_OK;
+		}else{
+			return GPS_NOK;
+		}
+	}else if(strncmp("GPZDA", (char *)buf, 5) == 0){ // get precise time
+		if(GPS_CheckSum(buf, len) == GPS_OK){
 				uint8_t step = 0;
 				uint8_t i = 0;
-				while(step < 8){
+				while(step < 6){
 					if(buf[i] == ','){
 						step++;
-						if(step == 7){
-							i++;
-							uint8_t tempData[12] = {0};
+						if(step == 1){
+							uint8_t tempData[8] = {0};
 							uint8_t leng = 0;
 							while(buf[i] != ','){
 								tempData[leng] = buf[i];
@@ -128,14 +152,79 @@ uint8_t GPS_Parse(uint8_t *buf, uint8_t len){
 							if(leng == 0){
 								return GPS_NOK;
 							}
-							memset(gpsSpeed, '0', 6);
-							memcpy(gpsSpeed + (6-leng), tempData, leng);
+							memset(gpsTime_UTC, '0', 9);
+							memcpy(gpsTime_UTC + (8-leng), tempData, leng);
+						}else if(step == 2){
+							uint8_t tempData[2] = {0};
+							uint8_t leng = 0;
+							while(buf[i] != ','){
+								tempData[leng] = buf[i];
+								leng++;
+								i++;
+							}
+							if(leng == 0){
+								return GPS_NOK;
+							}
+							memset(gps_date, '0', 3);
+							memcpy(gps_date + (2-leng), tempData, leng);
+						}else if(step == 3){
+							uint8_t tempData[2] = {0};
+							uint8_t leng = 0;
+							while(buf[i] != ','){
+								tempData[leng] = buf[i];
+								leng++;
+								i++;
+							}
+							if(leng == 0){
+								return GPS_NOK;
+							}
+							memset(gps_month, '0', 3);
+							memcpy(gps_month + (2-leng), tempData, leng);
+						}else if(step == 4){
+							uint8_t tempData[4] = {0};
+							uint8_t leng = 0;
+							while(buf[i] != ','){
+								tempData[leng] = buf[i];
+								leng++;
+								i++;
+							}
+							if(leng == 0){
+								return GPS_NOK;
+							}
+							memset(gps_year, '0', 5);
+							memcpy(gps_year + (4-leng), tempData, leng);
+						}else if(step == 5){
+							uint8_t tempData[2] = {0};
+							uint8_t leng = 0;
+							while(buf[i] != ','){
+								tempData[leng] = buf[i];
+								leng++;
+								i++;
+							}
+							if(leng == 0){
+								return GPS_NOK;
+							}
+							memset(local_zone_desc, '0', 3);
+							memcpy(local_zone_desc + (2-leng), tempData, leng);
+						}
+						else if(step == 5){
+							uint8_t tempData[2] = {0};
+							uint8_t leng = 0;
+							while(buf[i] != ','){
+								tempData[leng] = buf[i];
+								leng++;
+								i++;
+							}
+							if(leng == 0){
+								return GPS_NOK;
+							}
+							memset(local_zone_min_desc, '0', 3);
+							memcpy(local_zone_min_desc + (2-leng), tempData, leng);
 						}
 					}
 					i++;
 				}
 			return GPS_OK;
-			}
 		}else{
 			return GPS_NOK;
 		}
@@ -219,36 +308,42 @@ void GPS_GetHei(uint8_t *buf){
 	}
 }
 
-/* Returns time of length 8 in format "hh:mm:ss" */
+/* Returns time of length 11 in format "hh:mm:ss.msms" */
 void GPS_GetTime(uint8_t *buf){
 	isNewData = 0;
-//	uint8_t temp_hour[2];
-//	memcpy(temp_hour, gpsTime, 2);
-//	if(strcmp((char *)temp_hour, "23") <= 0){
-//		if(temp_hour[1] < '8'){
-//			temp_hour[1] += 2;
-//		}else if(temp_hour[1] == '8'){
-//			temp_hour[0]++;
-//			temp_hour[1] = (uint8_t) '0';
-//		}else if(temp_hour[1] == '9'){
-//			temp_hour[0]++;
-//			temp_hour[1] = (uint8_t) '1';
-//		}
-//	}else if(strcmp((char *)temp_hour, "23") == 1){
-//		temp_hour[0] = (uint8_t) '0';
-//		temp_hour[1] = (uint8_t) '1';
-//	}else if(strcmp((char *)temp_hour, "23") > 1){
-//		uint8_t a = strcmp((char *)temp_hour, "23") > 0;
-//		temp_hour[0] = (uint8_t) '0';
-//		temp_hour[1] = (uint8_t) '1';
-//	}
 	buf[2] = ':';
 	buf[5] = ':';
 	for(uint8_t i = 0; i < 2; i++){
-		//buf[i] = temp_hour[i];
-		buf[i] = gpsTime[i];
-		buf[i + 3] = gpsTime[i + 2];
-		buf[i + 6] = gpsTime[i + 4];
+		buf[i] = gpsTime_UTC[i];
+		buf[i + 3] = gpsTime_UTC[i + 2];
+		buf[i + 6] = gpsTime_UTC[i + 4];
+	}
+	buf[8] = gpsTime_UTC[6];
+	buf[9] = gpsTime_UTC[7];
+	buf[10] = gpsTime_UTC[8];
+}
+
+/* Returns year of length 4 in format "yyyy" */
+void GPS_GetYear(uint8_t *buf){
+	isNewData = 0;
+	for(uint8_t i = 0; i < 5; i++){
+		buf[i] = gps_year[i];
+	}
+}
+
+/* Returns month of length 2 in format "xx" */
+void GPS_GetMonth(uint8_t *buf){
+	isNewData = 0;
+	for(uint8_t i = 0; i < 2; i++){
+		buf[i] = gps_month[i];
+	}
+}
+
+/* Returns date of length 2 in format "xx" */
+void GPS_GetDate(uint8_t *buf){
+	isNewData = 0;
+	for(uint8_t i = 0; i < 2; i++){
+		buf[i] = gps_date[i];
 	}
 }
 

@@ -21,6 +21,9 @@ void GPS_GetLat(uint8_t *buf);
 void GPS_GetLon(uint8_t *buf);
 void GPS_GetSpe(uint8_t *buf);
 void GPS_GetHei(uint8_t *buf);
+void GPS_GetYear(uint8_t *buf);
+void GPS_GetMonth(uint8_t *buf);
+void GPS_GetDate(uint8_t *buf);
 
 uint8_t GPS_Parse(uint8_t *buf, uint8_t len);
 uint8_t GPS_CheckSum(uint8_t *buf, uint8_t len);
