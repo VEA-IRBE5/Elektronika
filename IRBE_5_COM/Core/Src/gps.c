@@ -308,8 +308,18 @@ void GPS_GetHei(uint8_t *buf){
 	}
 }
 
-/* Returns time of length 11 in format "hh:mm:ss.msms" */
+/* Returns time of length 9 in format "hh:mm:ss.msms" */
 void GPS_GetTime(uint8_t *buf){
+	isNewData = 0;
+	buf[2] = ':';
+	buf[5] = ':';
+	for(uint8_t i = 0; i < 2; i++){
+		buf[i] = gpsTime[i];
+		buf[i + 3] = gpsTime[i + 2];
+		buf[i + 6] = gpsTime[i + 4];
+	}
+}
+void GPS_GetTime_Full(uint8_t *buf){
 	isNewData = 0;
 	buf[2] = ':';
 	buf[5] = ':';
