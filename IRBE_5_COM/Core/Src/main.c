@@ -214,7 +214,7 @@ int main(void)
  //HAL_UART_Receive_DMA(&huart1, &rxBuf, 1); DOESN"T work for some reason
  HAL_UART_Receive_IT(&huart1, &rxBuf, 1); // Works like a charm, but not as good as DMA
  while(HAL_GPIO_ReadPin(RX_GPIO_Port, RX_Pin) == 0);
- HAL_UART_Receive_IT(&huart6, UART6_RxBuf, 2);
+ HAL_UART_Receive_IT(&huart6, UART6_RxBuf, UART6_RxBytes);
 
  //HAL_UART_Receive_IT(&huart2, UART6_RxBuf, 2);
 
@@ -279,7 +279,6 @@ int main(void)
 	//HAL_UART_Transmit_IT(&huart6, UART6_TxBuf, strlen((char *)UART6_TxBuf));
 	memset(UART6_RxBuf, 0, sizeof(UART6_RxBuf));
 	HAL_ADC_MspInit(&hadc1);
-	HAL_UART_Receive_IT(&huart6, UART6_RxBuf, UART6_RxBytes);
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -306,8 +305,8 @@ int main(void)
 			 UART6_TxBuf[1] = 0x99;
 			 UART6_TxBuf[2] = '*';
 			 UART6_TxBuf[3] = crc_xor(UART6_TxBuf);
-			 //snprintf(UART6_TxBuf + strlen((char *) UART6_TxBuf), sizeof(UART6_TxBuf) - strlen((char *) UART6_TxBuf), "*%d", crc_xor(UART6_TxBuf));
 			 HAL_UART_Transmit_IT(&huart6, UART6_TxBuf, 4);
+			 //snprintf(UART6_TxBuf + strlen((char *) UART6_TxBuf), sizeof(UART6_TxBuf) - strlen((char *) UART6_TxBuf), "*%d", crc_xor(UART6_TxBuf));
 			 HAL_GPIO_WritePin(LED_0_GPIO_Port, LED_0_Pin, GPIO_PIN_SET);
 			 make_string((char *)tel_dataBuf, sizeof(tel_dataBuf));
 			 RTTY_Send(&SX1278, tel_dataBuf, strlen((char *)tel_dataBuf));
@@ -953,6 +952,10 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart){
 							UART6_RxBytes = UART6_RxBuf[1];
 						}else{
 							UART6_RxBytes = 4;
+							 UART6_TxBuf[0] = 0x03;
+							 UART6_TxBuf[1] = 0x99;
+							 UART6_TxBuf[2] = '*';
+							 UART6_TxBuf[3] = crc_xor(UART6_TxBuf);
 							HAL_UART_Transmit_IT(&huart6, UART6_TxBuf, 4);
 						}
 						HAL_UART_Receive_IT(&huart6, UART6_RxBuf, UART6_RxBytes);
@@ -972,7 +975,7 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart){
 				UART6_RxBytes = 4;
 				HAL_UART_Receive_IT(&huart6, UART6_RxBuf, UART6_RxBytes);
 			}
-		memset(UART6_RxBuf, 48, sizeof(UART6_RxBuf));
+		memset(UART6_RxBuf, 0, sizeof(UART6_RxBuf));
 	}
 }
 
