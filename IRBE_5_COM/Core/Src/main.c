@@ -259,15 +259,15 @@ int main(void)
 	GPS_GetTime(time);
 	UART6_TxBuf[0] = 0x02;
 	UART6_TxBuf[1] = 5;
-	UART6_TxBuf[2] = "*";
-	UART6_TxBuf[3] = get_check_sum(UART6_TxBuf);
+	UART6_TxBuf[2] = '*';
+	UART6_TxBuf[3] = get_check_sum((char *)UART6_TxBuf);
 	HAL_UART_Transmit_IT(&huart6, UART6_TxBuf, 4);
 	memset(UART6_TxBuf, 0, sizeof(UART6_TxBuf));
-	UART6_TxBuf[0] = charToInt(&(time[6]));
-	UART6_TxBuf[1] = charToInt(&(time[3]));
-	UART6_TxBuf[2] = charToInt(&(time[0]));
-	UART6_TxBuf[3] = "*";
-	UART6_TxBuf[4] = get_check_sum(UART6_TxBuf);
+	UART6_TxBuf[0] = charToInt((char *)&(time[6]));
+	UART6_TxBuf[1] = charToInt((char *)&(time[3]));
+	UART6_TxBuf[2] = charToInt((char *)&(time[0]));
+	UART6_TxBuf[3] = '*';
+	UART6_TxBuf[4] = get_check_sum((char *)UART6_TxBuf);
 	//snprintf(UART6_TxBuf, sizeof(UART6_TxBuf), "*%s%s%s", charToInt(&(time[6])), charToInt(&(time[3])), charToInt(&(time[0]))/*, charToInt(date), charToInt(month), charToInt(year)*/);
 	//snprintf(UART6_TxBuf + strlen((char *) UART6_TxBuf), sizeof(UART6_TxBuf) - strlen((char *) UART6_TxBuf), "*%s", get_check_sum(UART6_TxBuf));
 	HAL_UART_Transmit_IT(&huart6, UART6_TxBuf, strlen((char *)UART6_TxBuf));
@@ -275,7 +275,7 @@ int main(void)
 	UART6_TxBuf[0] = 0x42;
 	UART6_TxBuf[1] = 0x88;
 	UART6_TxBuf[2] = '*';
-	UART6_TxBuf[3] = get_check_sum(UART6_TxBuf);
+	UART6_TxBuf[3] = get_check_sum((char *)UART6_TxBuf);
 	//HAL_UART_Transmit_IT(&huart6, UART6_TxBuf, strlen((char *)UART6_TxBuf));
 	memset(UART6_RxBuf, 0, sizeof(UART6_RxBuf));
 	HAL_ADC_MspInit(&hadc1);
@@ -300,11 +300,13 @@ int main(void)
 	if(do_send_tm){ // its time to send gps coordinates
 		 for(uint8_t tries = 0; tries < 5; tries++){
 			 //memset(UART6_DataBuf, 0, sizeof(UART6_DataBuf));
+			 memset(UART6_RxBuf, 0, sizeof(UART6_RxBuf));
+			 HAL_UART_Receive_IT(&huart2, UART6_RxBuf, 4);
 			 memset(UART6_TxBuf, 0, sizeof(UART6_TxBuf));
 			 UART6_TxBuf[0] = 0x03;
 			 UART6_TxBuf[1] = 0x99;
 			 UART6_TxBuf[2] = '*';
-			 UART6_TxBuf[3] = crc_xor(UART6_TxBuf);
+			 UART6_TxBuf[3] = crc_xor((char *)UART6_TxBuf);
 			 HAL_UART_Transmit_IT(&huart6, UART6_TxBuf, 4);
 			 //snprintf(UART6_TxBuf + strlen((char *) UART6_TxBuf), sizeof(UART6_TxBuf) - strlen((char *) UART6_TxBuf), "*%d", crc_xor(UART6_TxBuf));
 			 HAL_GPIO_WritePin(LED_0_GPIO_Port, LED_0_Pin, GPIO_PIN_SET);
@@ -935,11 +937,15 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart){
 			uint8_t Parameter = UART6_RxBuf[1];
 
 			if (UART6_RxIsData == 1){
-						for (uint8_t i = 0; i < UART6_RxBytes; i++)
+				if((UART6_RxBuf[UART6_RxBytes-2] == '*') && (UART6_RxBuf[UART6_RxBytes-1] == crc_xor((char *)UART6_RxBuf)))
+				{
+						for (uint8_t i = 0; i < (UART6_RxBytes-2); i++)
 							UART6_DataBuf[i] = UART6_RxBuf[i];
 						UART6_RxIsData = 0;
 						UART6_RxBytes = 4;
+						memset(UART6_RxBuf, 0, sizeof(UART6_RxBuf));
 						HAL_UART_Receive_IT(&huart2, UART6_RxBuf, UART6_RxBytes);
+				}
 			}else{
 				switch(Command){
 					case 0x00:
@@ -947,7 +953,7 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart){
 					break;
 					// Receive data from MCU
 					case 0x02:
-						if(crc_xor((char *)UART6_RxBuf) == UART6_RxBuf[4]){
+						if(crc_xor((char *)UART6_RxBuf) == UART6_RxBuf[3]){
 							UART6_RxIsData = 1;
 							UART6_RxBytes = UART6_RxBuf[1];
 						}else{
@@ -955,8 +961,9 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart){
 							 UART6_TxBuf[0] = 0x03;
 							 UART6_TxBuf[1] = 0x99;
 							 UART6_TxBuf[2] = '*';
-							 UART6_TxBuf[3] = crc_xor(UART6_TxBuf);
+							 UART6_TxBuf[3] = crc_xor((char *)UART6_TxBuf);
 							HAL_UART_Transmit_IT(&huart6, UART6_TxBuf, 4);
+							memset(UART6_RxBuf, 0, sizeof(UART6_RxBuf));
 						}
 						HAL_UART_Receive_IT(&huart6, UART6_RxBuf, UART6_RxBytes);
 					break;
@@ -973,9 +980,9 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart){
 			}
 			if(Command != 0x02){
 				UART6_RxBytes = 4;
+				memset(UART6_RxBuf, 0, sizeof(UART6_RxBuf));
 				HAL_UART_Receive_IT(&huart6, UART6_RxBuf, UART6_RxBytes);
 			}
-		memset(UART6_RxBuf, 0, sizeof(UART6_RxBuf));
 	}
 }
 
@@ -985,6 +992,7 @@ void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart){
 		HAL_UART_Receive_IT(&huart1, &rxBuf, 1);
 	}
 	if(huart == &huart6){
+		memset(UART6_RxBuf, 0, sizeof(UART6_RxBuf));
 		HAL_UART_Receive_IT(&huart6, UART6_RxBuf, UART6_RxBytes);
 	}
 }
@@ -1149,12 +1157,12 @@ float temp_mcu(void){
 	  return TemperatureValue;
   }
 uint8_t charToInt(char* c){
-	uint8_t num[2] = {0};
+	uint8_t num = {0};
 	for(uint8_t i = 0; 2 > i; i++){
 		if(i == 0){
-			num[0] += (c[i] - '0') * 10;
+			num += (c[i] - '0') * 10;
 		}else{
-			num[0] += c[i] - '0';
+			num += c[i] - '0';
 		}
 	}
 	return num;
