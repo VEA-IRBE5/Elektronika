@@ -23,8 +23,8 @@ main.c:1044:6:RTTY_Send	32	static
 main.c:1057:6:RTTY_SendSingle	24	static
 main.c:1073:9:get_check_sum	32	static
 main.c:1080:9:crc_xor	32	static
-main.c:1088:6:make_string	120	static
-main.c:1118:6:make_string_gsm	64	static
-main.c:1137:7:temp_mcu	16	static
-main.c:1159:9:charToInt	24	static
-main.c:1177:6:Error_Handler	4	static,ignoring_inline_asm
+main.c:1088:6:make_string	128	static
+main.c:1119:6:make_string_gsm	64	static
+main.c:1138:7:temp_mcu	16	static
+main.c:1160:9:charToInt	24	static
+main.c:1178:6:Error_Handler	4	static,ignoring_inline_asm

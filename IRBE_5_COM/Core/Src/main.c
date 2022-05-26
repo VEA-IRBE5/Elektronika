@@ -1109,7 +1109,8 @@ void make_string(char *s, uint8_t size){
 
 	snprintf(s, size, "\r\n$$IRBE5,%li,%s,%s,%s,%s,%s,%s,%.2f", ++num, time, lat, lon, hei, spe, UART6_DataBuf, temp_mcu());
 	uint8_t l = strlen((char *)s);
-	if(snprintf(s + l, size - l, "*%02x\r\n", get_check_sum((char *)s))  > size - 4 - 1){
+	char *ptr = strrchr(s, '$');
+	if(snprintf(s + l, size - l, "*%02x\r\n", get_check_sum(ptr))  > size - 4 - 1){
 		//buffer overflow
 		return;
 	}
