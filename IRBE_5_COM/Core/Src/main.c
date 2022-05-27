@@ -37,7 +37,6 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -68,6 +67,7 @@ uint8_t uartRec = 0;
 uint8_t rxBuf;
 uint8_t cmd_tx_buffer[cmd_rx_buffer_size];
 uint8_t cmd_rx_buffer[cmd_rx_buffer_size];
+uint8_t tel_dataBuf[110];
 uint8_t LTRS = 0b11111;
 uint8_t NMBR = 0b11011;
 uint32_t num = 0;
@@ -243,7 +243,6 @@ int main(void)
 	//	uint8_t check_sum;
 	//	uint8_t check_sum_arr[4] = {0, 0, 0, 0};
 
-	uint8_t tel_dataBuf[110];
 	uint8_t gsm_dataBuf[80];
 	memset(tel_dataBuf, 0, sizeof(tel_dataBuf));
 
@@ -299,7 +298,8 @@ int main(void)
 	}
 	if(do_send_tm){ // its time to send gps coordinates
 		 for(uint8_t tries = 0; tries < 5; tries++){
-			 //memset(UART6_DataBuf, 0, sizeof(UART6_DataBuf));
+			 UART6_RxIsData = 0;
+			 UART6_RxBytes = 4;
 			 memset(UART6_RxBuf, 0, sizeof(UART6_RxBuf));
 			 HAL_UART_Receive_IT(&huart2, UART6_RxBuf, 4);
 			 memset(UART6_TxBuf, 0, sizeof(UART6_TxBuf));
@@ -937,15 +937,19 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart){
 			uint8_t Parameter = UART6_RxBuf[1];
 
 			if (UART6_RxIsData == 1){
-				if((UART6_RxBuf[UART6_RxBytes-2] == '*') && (UART6_RxBuf[UART6_RxBytes-1] == crc_xor((char *)UART6_RxBuf)))
-				{
-						for (uint8_t i = 0; i < (UART6_RxBytes-2); i++)
+
+				UART6_RxIsData = 0;
+				UART6_RxBytes = 4;
+				uint8_t msg_len = strlen((char *)UART6_RxBuf);
+
+				if(UART6_RxBuf[msg_len-1] == crc_xor((char *)UART6_RxBuf))
+						for (uint8_t i = 0; i < (msg_len-2); i++)
 							UART6_DataBuf[i] = UART6_RxBuf[i];
-						UART6_RxIsData = 0;
-						UART6_RxBytes = 4;
-						memset(UART6_RxBuf, 0, sizeof(UART6_RxBuf));
-						HAL_UART_Receive_IT(&huart2, UART6_RxBuf, UART6_RxBytes);
-				}
+
+				memset(UART6_RxBuf, 0, sizeof(UART6_RxBuf));
+				HAL_UART_Receive_IT(&huart2, UART6_RxBuf, UART6_RxBytes);
+
+
 			}else{
 				switch(Command){
 					case 0x00:
