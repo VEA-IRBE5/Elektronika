@@ -213,7 +213,7 @@ int main(void)
 
  //HAL_UART_Receive_DMA(&huart1, &rxBuf, 1); DOESN"T work for some reason
  HAL_UART_Receive_IT(&huart1, &rxBuf, 1); // Works like a charm, but not as good as DMA
- while(HAL_GPIO_ReadPin(RX_GPIO_Port, RX_Pin) == 0);
+ //while(HAL_GPIO_ReadPin(RX_GPIO_Port, RX_Pin) == 0);
  HAL_UART_Receive_IT(&huart6, UART6_RxBuf, UART6_RxBytes);
 
  //HAL_UART_Receive_IT(&huart2, UART6_RxBuf, 2);
@@ -247,7 +247,7 @@ int main(void)
 	memset(tel_dataBuf, 0, sizeof(tel_dataBuf));
 
 	//HAL_UART_Transmit_IT(&huart6, UART6_TxBuf, 2);
-	while(GPS_IsData() == GPS_NOK);
+	//while(GPS_IsData() == GPS_NOK);
 //	uint8_t year[4];
 //	uint8_t month[2];
 //	uint8_t date[2];
@@ -286,15 +286,15 @@ int main(void)
   {
 	if(gsmRec){
 		//HAL_GPIO_ReadPin(GSM_GPIO1INT_GPIO_Port, GSM_GPIO1INT_Pin) < parbauda vai GSM ir gatavs rukat
-		make_string_gsm((char *)gsm_dataBuf, sizeof(gsm_dataBuf));
-		if(GSM_Check_Signal()){
-			GSM_Message_Send(gsm_dataBuf, strlen((char *)gsm_dataBuf), 28654641);
-		}
+//		make_string_gsm((char *)gsm_dataBuf, sizeof(gsm_dataBuf));
+//		if(GSM_Check_Signal()){
+//			GSM_Message_Send(gsm_dataBuf, strlen((char *)gsm_dataBuf), 28654641);
+//		}
 
 		GSM_Off();
 
 		gsmRec = 0;
-		HAL_TIM_Base_Start_IT(&htim5);
+		//HAL_TIM_Base_Start_IT(&htim5);
 	}
 	if(do_send_tm){ // its time to send gps coordinates
 		 for(uint8_t tries = 0; tries < 5; tries++){

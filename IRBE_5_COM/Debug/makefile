@@ -1,6 +1,6 @@
 ################################################################################
 # Automatically-generated file. Do not edit!
-# Toolchain: GNU Tools for STM32 (9-2020-q2-update)
+# Toolchain: GNU Tools for STM32 (10.3-2021.10)
 ################################################################################
 
 -include ../makefile.init
@@ -43,14 +43,14 @@ BUILD_ARTIFACT := $(BUILD_ARTIFACT_PREFIX)$(BUILD_ARTIFACT_NAME)$(if $(BUILD_ART
 EXECUTABLES += \
 IRBE_5_COM.elf \
 
+MAP_FILES += \
+IRBE_5_COM.map \
+
 SIZE_OUTPUT += \
 default.size.stdout \
 
 OBJDUMP_LIST += \
 IRBE_5_COM.list \
-
-OBJCOPY_BIN += \
-IRBE_5_COM.bin \
 
 
 # All Target
@@ -60,8 +60,8 @@ all: main-build
 main-build: IRBE_5_COM.elf secondary-outputs
 
 # Tool invocations
-IRBE_5_COM.elf: $(OBJS) $(USER_OBJS) D:\Studiju_materiali\IRBE5_COM\IRBE_5_COM\STM32F401CEUX_FLASH.ld makefile objects.list $(OPTIONAL_TOOL_DEPS)
-	arm-none-eabi-gcc -o "IRBE_5_COM.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m4 -T"D:\Studiju_materiali\IRBE5_COM\IRBE_5_COM\STM32F401CEUX_FLASH.ld" --specs=nosys.specs -Wl,-Map="IRBE_5_COM.map" -Wl,--gc-sections -static --specs=nano.specs -mfpu=fpv4-sp-d16 -mfloat-abi=hard -mthumb -u _printf_float -Wl,--start-group -lc -lm -Wl,--end-group
+IRBE_5_COM.elf IRBE_5_COM.map: $(OBJS) $(USER_OBJS) C:\Users\localuser\Desktop\COM\IRBE_5_COM\STM32F401CEUX_FLASH.ld makefile objects.list $(OPTIONAL_TOOL_DEPS)
+	arm-none-eabi-gcc -o "IRBE_5_COM.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m4 -T"C:\Users\localuser\Desktop\COM\IRBE_5_COM\STM32F401CEUX_FLASH.ld" --specs=nosys.specs -Wl,-Map="IRBE_5_COM.map" -Wl,--gc-sections -static --specs=nano.specs -mfpu=fpv4-sp-d16 -mfloat-abi=hard -mthumb -u _printf_float -Wl,--start-group -lc -lm -Wl,--end-group
 	@echo 'Finished building target: $@'
 	@echo ' '
 
@@ -75,17 +75,12 @@ IRBE_5_COM.list: $(EXECUTABLES) makefile objects.list $(OPTIONAL_TOOL_DEPS)
 	@echo 'Finished building: $@'
 	@echo ' '
 
-IRBE_5_COM.bin: $(EXECUTABLES) makefile objects.list $(OPTIONAL_TOOL_DEPS)
-	arm-none-eabi-objcopy  -O binary $(EXECUTABLES) "IRBE_5_COM.bin"
-	@echo 'Finished building: $@'
-	@echo ' '
-
 # Other Targets
 clean:
-	-$(RM) IRBE_5_COM.bin IRBE_5_COM.elf IRBE_5_COM.list default.size.stdout
+	-$(RM) IRBE_5_COM.elf IRBE_5_COM.list IRBE_5_COM.map default.size.stdout
 	-@echo ' '
 
-secondary-outputs: $(SIZE_OUTPUT) $(OBJDUMP_LIST) $(OBJCOPY_BIN)
+secondary-outputs: $(SIZE_OUTPUT) $(OBJDUMP_LIST)
 
 fail-specified-linker-script-missing:
 	@echo 'Error: Cannot find the specified linker script. Check the linker settings in the build configuration.'
