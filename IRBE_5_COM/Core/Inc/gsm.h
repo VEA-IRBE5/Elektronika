@@ -2,8 +2,6 @@
 #define INC_GSM_H_
 
 #include "main.h"
-#include <string.h>
-#include <stdio.h>
 
 void GSM_On();
 void GSM_Off();

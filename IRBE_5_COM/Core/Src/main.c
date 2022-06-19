@@ -1143,13 +1143,13 @@ float temp_mcu(void){
 	  float TemperatureValue = 0;
 	  uint16_t value = 0;
 	  if (HAL_ADC_Start(&hadc1) != HAL_OK){
-		return HAL_ERROR;
+		  return HAL_ERROR;
 	  }
 	  if (HAL_ADC_PollForConversion(&hadc1, HAL_MAX_DELAY) != HAL_OK) {
-	  return HAL_ERROR;
+		  return HAL_ERROR;
 	  }
 	  if((HAL_ADC_GetState(&hadc1) & HAL_ADC_STATE_REG_EOC) !=  HAL_ADC_STATE_REG_EOC){
-	  return HAL_ERROR;
+		  return HAL_ERROR;
 	  }
 	  value = HAL_ADC_GetValue(&hadc1);
 	  TemperatureValue = value & 0x0fff;// 12 bit result
